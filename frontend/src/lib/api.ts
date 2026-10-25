@@ -41,7 +41,15 @@ import type {
 
 // Vercel/env values are often pasted with a trailing slash. Normalise once so
 // requests never become `//api/v1/...` (which Vercel/Render reject with 405).
-const BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? "").replace(/\/+$/, "");
+const configuredBase = ((import.meta.env.VITE_API_URL as string | undefined) ?? "").replace(/\/+$/, "");
+
+// On Vercel the API is reverse-proxied through `/api/*` (see vercel.json).
+// Same-origin requests keep the session cookie first-party, which is required
+// by mobile Safari/Chrome third-party-cookie blocking. Other hosts can still
+// point directly at the API with VITE_API_URL.
+const isVercelHost =
+  typeof window !== "undefined" && /\.vercel\.app$/i.test(window.location.hostname);
+const BASE = isVercelHost ? "" : configuredBase;
 const API = `${BASE}/api/v1`;
 
 let csrfToken: string | null = null;
