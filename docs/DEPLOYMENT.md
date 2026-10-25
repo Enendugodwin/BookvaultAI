@@ -209,8 +209,13 @@ Then:
 
 ## Administrator access
 
-The first registered production account is a normal reader. Promote it from the
-backend directory after it exists; there is no unauthenticated bootstrap route:
+Accounts listed in `ADMIN_EMAILS` (comma-separated) are promoted automatically
+when they register or sign in. The repository default is
+`enendugodwin@gmail.com`; change it before sharing a deployment, and only list
+addresses you control because registration does not require email verification.
+
+Any other account can be promoted from the backend directory after it exists;
+there is no unauthenticated bootstrap route:
 
 ```bash
 python scripts/admin.py promote owner@example.com
