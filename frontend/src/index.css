@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 38 38% 96%;
+    --foreground: 24 12% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 12% 11%;
+    --muted: 36 24% 91%;
+    --muted-foreground: 27 8% 42%;
+    --border: 33 20% 85%;
+    --input: 33 20% 82%;
+    --ring: 18 68% 42%;
+    --primary: 18 68% 42%;
+    --primary-foreground: 40 50% 97%;
+    --accent: 145 20% 32%;
+    --accent-foreground: 40 50% 97%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 40 50% 97%;
+    --success: 145 42% 31%;
+    --warning: 36 78% 40%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 30 10% 8%;
+    --foreground: 38 24% 91%;
+    --card: 27 9% 12%;
+    --card-foreground: 38 24% 91%;
+    --muted: 27 8% 17%;
+    --muted-foreground: 33 9% 63%;
+    --border: 27 8% 22%;
+    --input: 27 8% 26%;
+    --ring: 24 72% 58%;
+    --primary: 24 72% 58%;
+    --primary-foreground: 24 20% 10%;
+    --accent: 145 24% 58%;
+    --accent-foreground: 24 20% 10%;
+    --destructive: 0 58% 52%;
+    --destructive-foreground: 30 20% 96%;
+    --success: 145 34% 53%;
+    --warning: 36 72% 58%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground;
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .surface {
+    @apply rounded-lg border border-border/80 bg-card shadow-soft;
+  }
+
+  .field {
+    @apply h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring/30;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[13px] font-medium text-foreground/80;
+  }
+
+  .prose-reading {
+    @apply text-[15px] leading-7 text-foreground/85;
+  }
+
+  .prose-reading p + p {
+    @apply mt-3;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-muted;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent content-[''] dark:via-white/5;
+    animation: shimmer 1.6s infinite;
+  }
+
+  .table-base {
+    @apply w-full text-left text-sm;
+  }
+
+  .table-base thead th {
+    @apply border-b border-border px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground;
+  }
+
+  .table-base tbody td {
+    @apply border-b border-border/60 px-3 py-3 align-middle;
+  }
+
+  .table-base tbody tr:last-child td {
+    @apply border-0;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+  }
+
+  .grain {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.035) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+}

@@ -1,0 +1,128 @@
+# Render Blueprint for BookVault AI.
+#
+# One Docker web service serves the API and the built frontend (same origin,
+# so cookies are simple). A separate worker processes imports, exports, email,
+# reminders and AI jobs. PostgreSQL is managed by Render.
+#
+# Before syncing this blueprint:
+#   1. Create a Cloudflare R2 bucket (or S3) and have its endpoint + keys ready.
+#      Production validation refuses to start with STORAGE_BACKEND=s3 and no
+#      bucket/keys.
+#   2. After the first deploy, set FRONTEND_URL and ALLOWED_ORIGINS to the
+#      service URL shown by Render (https://<name>.onrender.com), or your
+#      custom domain.
+#
+# The plan values below are paid instances suitable for real use. Change them
+# to free/trial plans for a throwaway demo.
+
+databases:
+  - name: bookvault-db
+    databaseName: bookvault
+    user: bookvault
+    plan: starter
+    region: frankfurt
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: bookvault-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bookvault-db
+          property: connectionString
+      - key: FRONTEND_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: lax
+      - key: EXPOSE_RESET_TOKEN
+        value: "false"
+      - key: FRONTEND_DIST_DIR
+        value: /app/frontend_dist
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: STORAGE_LOCAL_DIR
+        value: /data/storage
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_SERVER_SIDE_ENCRYPTION
+        value: ""
+      - key: EMAIL_PROVIDER
+        value: disabled
+      - key: AI_PROVIDER
+        value: disabled
+      - key: MAX_UPLOAD_MB
+        value: "20"
+      - key: LOG_LEVEL
+        value: INFO
+
+  - type: worker
+    name: bookvault-worker
+    runtime: python
+    plan: starter
+    region: frankfurt
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && python -m app.tasks.worker
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: bookvault-api
+          envVarKey: SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bookvault-db
+          property: connectionString
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: EXPOSE_RESET_TOKEN
+        value: "false"
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: STORAGE_LOCAL_DIR
+        value: /data/storage
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_SERVER_SIDE_ENCRYPTION
+        value: ""
+      - key: EMAIL_PROVIDER
+        value: disabled
+      - key: AI_PROVIDER
+        value: disabled
+      - key: LOG_LEVEL
+        value: INFO

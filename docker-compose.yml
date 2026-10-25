@@ -1,0 +1,97 @@
+name: bookvault
+
+x-backend-env: &backend-env
+  ENVIRONMENT: ${ENVIRONMENT:-production}
+  SECRET_KEY: "${SECRET_KEY:?Set SECRET_KEY in .env - generate one with openssl rand -hex 32}"
+  DATABASE_URL: postgresql+psycopg://bookvault:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/bookvault
+  FRONTEND_URL: ${APP_URL:-http://localhost:8000}
+  ALLOWED_ORIGINS: ${APP_URL:-http://localhost:8000}
+  COOKIE_SECURE: ${COOKIE_SECURE:-true}
+  COOKIE_SAMESITE: lax
+  SESSION_TTL_HOURS: "720"
+  EXPOSE_RESET_TOKEN: "false"
+  FRONTEND_DIST_DIR: /app/frontend_dist
+  STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+  STORAGE_LOCAL_DIR: /data/storage
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+  S3_BUCKET: ${S3_BUCKET:-}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+  S3_REGION: ${S3_REGION:-auto}
+  S3_SERVER_SIDE_ENCRYPTION: ${S3_SERVER_SIDE_ENCRYPTION:-}
+  EMAIL_PROVIDER: ${EMAIL_PROVIDER:-disabled}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  EMAIL_FROM: ${EMAIL_FROM:-BookVault AI <no-reply@example.com>}
+  AI_PROVIDER: ${AI_PROVIDER:-disabled}
+  AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+  AI_DAILY_REQUESTS_PER_USER: ${AI_DAILY_REQUESTS_PER_USER:-25}
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: bookvault-ai:latest
+  restart: unless-stopped
+  volumes:
+    - bookvault-storage:/data
+  depends_on:
+    db:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bookvault
+      POSTGRES_USER: bookvault
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - bookvault-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookvault -d bookvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bookvault-ai:latest
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *backend-env
+    ports:
+      - "${PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.tasks.worker"]
+    environment: *backend-env
+    healthcheck:
+      disable: true
+
+volumes:
+  bookvault-pgdata:
+  bookvault-storage:
