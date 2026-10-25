@@ -88,6 +88,7 @@ have to guess.
 - [x] `.env.example`, `docker.env.example`
 - [x] `README.md`, `docs/ARCHITECTURE.md`, `docs/ENVIRONMENT.md`,
       `docs/DEPLOYMENT.md`
+- [x] Product screenshots in `docs/screenshots/` (desktop, mobile, admin, themes)
 - [x] Demo seed (`backend/scripts/seed.py`) with production guard; the local
       demo account is an administrator
 - [x] Dedicated GitHub deploy key generated outside the repo

@@ -417,7 +417,7 @@ export function AdminPage() {
                     <UserRoundCheck className="h-3 w-3 text-muted-foreground" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[11.5px] font-medium leading-4">{item.action.replaceAll(".", " ? ")}</p>
+                    <p className="text-[11.5px] font-medium leading-4">{item.action.replaceAll(".", " · ")}</p>
                     <p className="truncate text-[10.5px] text-muted-foreground">{item.email ?? "Deleted account"}</p>
                     <p className="mt-0.5 text-[10px] text-muted-foreground/70">{formatDateTime(item.created_at)}</p>
                   </div>

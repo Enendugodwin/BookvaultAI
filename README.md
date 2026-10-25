@@ -11,6 +11,24 @@ pass**, the Python end-to-end smoke script passes, and the production frontend
 build succeeds. It has **not** been deployed to a public cloud account; see
 [Deployment status](#deployment-status).
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-desktop.png" alt="YVO's Book Vault dashboard" width="900">
+</p>
+
+| Library | Admin portal |
+| --- | --- |
+| ![Library](docs/screenshots/library-desktop.png) | ![Admin portal](docs/screenshots/admin-desktop.png) |
+
+<p align="center">
+  <img src="docs/screenshots/themes-desktop.png" alt="Eight built-in themes" width="900">
+</p>
+
+| Mobile dashboard | Currently reading | Notes | Mobile admin |
+| --- | --- | --- | --- |
+| <img src="docs/screenshots/dashboard-mobile.png" alt="Mobile dashboard" width="190"> | <img src="docs/screenshots/reading-mobile.png" alt="Mobile reading" width="190"> | <img src="docs/screenshots/notes-mobile.png" alt="Mobile notes" width="190"> | <img src="docs/screenshots/admin-mobile.png" alt="Mobile admin" width="190"> |
+
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, React Query, Recharts
 - **Backend:** FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, Python 3.12
 - **Data:** PostgreSQL in production, SQLite for local development and tests
