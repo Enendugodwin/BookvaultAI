@@ -39,7 +39,9 @@ import type {
   UserBook,
 } from "./types";
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+// Vercel/env values are often pasted with a trailing slash. Normalise once so
+// requests never become `//api/v1/...` (which Vercel/Render reject with 405).
+const BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? "").replace(/\/+$/, "");
 const API = `${BASE}/api/v1`;
 
 let csrfToken: string | null = null;
