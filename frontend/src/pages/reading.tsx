@@ -131,7 +131,40 @@ export function ReadingPage() {
         {sessions.isLoading ? (
           <Skeleton className="h-64 rounded-lg" />
         ) : sessions.data?.items.length ? (
-          <div className="overflow-hidden rounded-lg border border-border/80 bg-card shadow-soft">
+          <>
+            {/* Mobile: stacked cards avoid a horizontally clipped table. */}
+            <div className="space-y-3 sm:hidden">
+              {sessions.data.items.map((session) => (
+                <div key={session.id} className="surface p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link to={`/books/${session.user_book_id}`} className="line-clamp-2 text-[13.5px] font-semibold hover:text-primary">
+                        {session.book_title}
+                      </Link>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        {formatDate(session.started_at)} · {session.duration_minutes} min
+                        {session.pages_read ? ` · ${session.pages_read} pages` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-0.5">
+                      <Button variant="ghost" size="icon" onClick={() => setEditSession(session)} aria-label="Edit session">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteSession(session)} aria-label="Delete session">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                  {session.notes && (
+                    <p className="mt-2 line-clamp-2 border-t border-border/60 pt-2 text-[11.5px] leading-5 text-muted-foreground">
+                      {session.notes}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-hidden rounded-lg border border-border/80 bg-card shadow-soft sm:block">
             <div className="overflow-x-auto">
               <table className="table-base min-w-[680px]">
                 <thead>
@@ -175,6 +208,7 @@ export function ReadingPage() {
               </table>
             </div>
           </div>
+          </>
         ) : (
           <EmptyState
             icon={CalendarDays}

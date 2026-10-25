@@ -25,7 +25,7 @@ def template(auth: AuthContext = Depends(require_csrf)):
     return PlainTextResponse(
         importer.template_csv(),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="bookvault-import-template.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="yvos-book-vault-import-template.csv"'},
     )
 
 

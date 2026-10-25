@@ -274,8 +274,9 @@ export function AnalyticsPage() {
                 <CardTitle className="text-base">Reading heatmap</CardTitle>
                 <p className="mt-1 text-[12px] text-muted-foreground">Click any day to see the sessions behind it.</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 max-w-full items-center gap-2">
                 <Tabs
+                  className="min-w-0"
                   tabs={[
                     { value: "pages", label: "Pages" },
                     { value: "minutes", label: "Minutes" },
@@ -287,7 +288,7 @@ export function AnalyticsPage() {
                 <Select
                   value={year}
                   onChange={(event) => setYear(Number(event.target.value))}
-                  className="h-8 w-auto text-[12px]"
+                  className="h-8 w-auto shrink-0 text-[12px]"
                   aria-label="Heatmap year"
                 >
                   {Array.from({ length: 5 }).map((_, index) => {

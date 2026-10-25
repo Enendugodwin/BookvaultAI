@@ -1,4 +1,4 @@
-"""Create demo data for a local BookVault AI instance.
+"""Create demo data for a local YVO's Book Vault instance.
 
 This script is intentionally conservative: it refuses to run against a
 production database unless you explicitly pass ``--force``, and it only
@@ -140,6 +140,7 @@ def _create_user(db, email: str, password: str, display_name: str) -> User:
         password_hash=hash_password(password),
         display_name=display_name,
         is_demo=True,
+        is_admin=True,
         email_verified=True,
     )
     user.settings = UserSettings(
@@ -289,7 +290,7 @@ def _seed_knowledge(db, user: User, library: dict[str, object]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Seed a BookVault AI demo account.")
+    parser = argparse.ArgumentParser(description="Seed a YVO's Book Vault demo account.")
     parser.add_argument("--email", default="demo@bookvault.io")
     parser.add_argument("--password", default="bookvault-demo-2026")
     parser.add_argument("--name", default="Demo Reader")
@@ -326,6 +327,7 @@ def main() -> int:
         print("Demo account ready:")
         print(f"  email:    {args.email}")
         print(f"  password: {args.password}")
+        print("  role:     administrator (local demo only)")
         print("Run the backend and frontend, then sign in at /login.")
         print("Start the worker too, or background jobs (imports, exports, AI) stay queued:")
         print("  python -m app.tasks.worker")

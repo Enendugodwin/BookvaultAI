@@ -72,7 +72,7 @@ export function VerifyEmailPage() {
               to="/"
               className="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
-              Open BookVault
+              Open YVO's Book Vault
             </Link>
           </>
         )}

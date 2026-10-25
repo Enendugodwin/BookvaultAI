@@ -162,7 +162,7 @@ export function AssistantPage() {
         <div className="rounded-md border border-warning/30 bg-warning/[0.06] p-4">
           <p className="flex items-center gap-2 text-[13.5px] font-semibold"><Sparkles className="h-4 w-4 text-warning" /> AI is not active on this deployment</p>
           <p className="mt-1.5 max-w-3xl text-[12px] leading-6 text-muted-foreground">
-            {aiStatus?.message ?? "An administrator must configure an AI provider."} The rest of BookVault works fully without it.
+            {aiStatus?.message ?? "An administrator must configure an AI provider."} The rest of YVO's Book Vault works fully without it.
             To enable: set <code className="font-mono text-[11px]">AI_PROVIDER</code>, <code className="font-mono text-[11px]">AI_BASE_URL</code>,{" "}
             <code className="font-mono text-[11px]">AI_MODEL</code> and <code className="font-mono text-[11px]">AI_API_KEY</code> on the server,
             then enable AI and external processing consent in Settings.

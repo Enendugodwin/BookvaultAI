@@ -100,7 +100,7 @@ def download_export(
     except FileNotFoundError:
         raise AppError("missing_file", "The export file is no longer available.", 410)
     media_type = FORMATS.get(job.format, ("application/octet-stream", "bin"))[0]
-    filename = (job.filename or f"bookvault-export-{job.id}").replace('"', "")
+    filename = (job.filename or f"yvos-book-vault-export-{job.id}").replace('"', "")
     return Response(
         content=data,
         media_type=media_type,

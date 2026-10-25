@@ -130,6 +130,7 @@ def user_payload(user: User, csrf_token: str | None = None) -> dict:
         "email": user.email,
         "display_name": user.display_name,
         "email_verified": user.email_verified,
+        "is_admin": user.is_admin,
         "created_at": user.created_at,
         "csrf_token": csrf_token,
         "settings": {

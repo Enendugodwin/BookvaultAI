@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Bell, Bot, Database, Download, KeyRound, Monitor, Palette, Plus, ShieldCheck,
+  Bell, Bot, Database, Download, KeyRound, Palette, Plus, ShieldCheck,
   Sparkles, Trash2, Upload, UserRound,
 } from "lucide-react";
 import { api, ApiError, downloadExport } from "@/lib/api";
@@ -19,6 +19,7 @@ import { useAuth } from "@/context/auth";
 import { useTheme } from "@/context/theme";
 import { ImportDialog } from "@/components/data/import-dialog";
 import { ExportDialog } from "@/components/data/export-dialog";
+import { THEMES } from "@/lib/themes";
 
 type SettingsTab = "profile" | "appearance" | "notifications" | "ai" | "data" | "security";
 
@@ -143,7 +144,7 @@ export function SettingsPage() {
       <PageHeader
         eyebrow="Account"
         title="Settings"
-        description="Your profile, how BookVault behaves, and what leaves this server."
+        description="Your profile, how YVO's Book Vault behaves, and what leaves this server."
       />
 
       <div className="grid gap-6 lg:grid-cols-[190px_1fr]">
@@ -247,12 +248,8 @@ export function SettingsPage() {
                   <CardDescription>Follow the system or pin a reading light.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {[
-                      { value: "light" as const, label: "Light", description: "Parchment and ink" },
-                      { value: "dark" as const, label: "Dark", description: "Late-night reading" },
-                      { value: "system" as const, label: "System", description: "Match this device" },
-                    ].map((option) => (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                    {THEMES.map((option) => (
                       <button
                         key={option.value}
                         type="button"
@@ -263,13 +260,17 @@ export function SettingsPage() {
                         }}
                         className={cn(
                           "rounded-md border p-3 text-left transition-colors",
-                          theme === option.value ? "border-primary bg-primary/5" : "border-border hover:border-foreground/25",
+                          theme === option.value ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-foreground/25",
                         )}
                         aria-pressed={theme === option.value}
                       >
-                        <Monitor className="mb-2 h-4 w-4 text-muted-foreground" />
+                        <span className="mb-2 flex overflow-hidden rounded-sm border border-black/10">
+                          {option.swatch.map((color, index) => (
+                            <span key={index} className="h-5 flex-1" style={{ backgroundColor: color }} />
+                          ))}
+                        </span>
                         <p className="text-[13px] font-medium">{option.label}</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{option.description}</p>
+                        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{option.description}</p>
                       </button>
                     ))}
                   </div>
@@ -447,7 +448,7 @@ export function SettingsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Your data</CardTitle>
-                  <CardDescription>Import, export and inspect what BookVault holds. You own all of it.</CardDescription>
+                  <CardDescription>Import, export and inspect what YVO's Book Vault holds. You own all of it.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
                   <Button onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" /> Import books</Button>

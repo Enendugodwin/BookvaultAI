@@ -150,7 +150,12 @@ export function NotesPage() {
             </button>
           )}
         </div>
-        <Tabs tabs={tabs} value={tab} onChange={(value) => { setTab(value); setPage(1); }} />
+        <Tabs
+          className="min-w-0 max-w-full"
+          tabs={tabs}
+          value={tab}
+          onChange={(value) => { setTab(value); setPage(1); }}
+        />
       </div>
 
       {debounced.trim().length >= 2 && globalSearch.data ? (

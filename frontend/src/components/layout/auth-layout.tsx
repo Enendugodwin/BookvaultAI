@@ -26,7 +26,7 @@ export function AuthLayout({
             <BookOpen className="h-5 w-5" />
           </span>
           <div>
-            <p className="font-display text-lg font-semibold leading-none">BookVault</p>
+            <p className="font-display text-lg font-semibold leading-none">YVO's Book Vault</p>
             <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-[#f4ede4]/50">AI reading desk</p>
           </div>
         </div>
@@ -66,7 +66,7 @@ export function AuthLayout({
             <span className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background">
               <BookOpen className="h-5 w-5" />
             </span>
-            <span className="font-display text-lg font-semibold">BookVault</span>
+            <span className="font-display text-lg font-semibold">YVO's Book Vault</span>
           </div>
           <h1 className="text-balance font-display text-[2rem] font-semibold leading-tight">{title}</h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">{subtitle}</p>

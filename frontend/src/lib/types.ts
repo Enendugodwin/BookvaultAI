@@ -1,4 +1,12 @@
-export type Theme = "light" | "dark" | "system";
+export type Theme =
+  | "system"
+  | "light"
+  | "dark"
+  | "pink"
+  | "midnight"
+  | "purple"
+  | "forest"
+  | "sepia";
 export type BookStatus =
   | "want_to_read"
   | "reading"
@@ -29,6 +37,7 @@ export interface User {
   email: string;
   display_name: string;
   email_verified: boolean;
+  is_admin: boolean;
   created_at: string;
   csrf_token: string | null;
   settings: UserSettings;
@@ -484,4 +493,58 @@ export interface ReportPreview {
   rows: [string, string][];
   email_configured: boolean;
   email_enabled_by_user: boolean;
+}
+
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  display_name: string;
+  is_active: boolean;
+  is_admin: boolean;
+  is_demo: boolean;
+  email_verified: boolean;
+  created_at: string;
+  last_login_at: string | null;
+  book_count: number;
+  session_count: number;
+  reading_minutes: number;
+  active_sessions: number;
+}
+
+export interface AdminOverview {
+  generated_at: string;
+  totals: {
+    users: number;
+    active_users: number;
+    suspended_users: number;
+    admins: number;
+    verified_users: number;
+    new_users_7d: number;
+    active_users_7d: number;
+    books: number;
+    sessions: number;
+    reading_minutes: number;
+    notes: number;
+    highlights: number;
+  };
+  jobs: Record<string, number>;
+  recent_users: AdminUser[];
+}
+
+export interface AdminUserPage {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface AdminActivity {
+  id: string;
+  action: string;
+  detail: Record<string, unknown>;
+  created_at: string;
+  user_id: string | null;
+  email: string | null;
 }

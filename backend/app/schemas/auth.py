@@ -62,7 +62,7 @@ class VerifyEmailIn(BaseModel):
 
 class SettingsIn(BaseModel):
     timezone: str | None = Field(default=None, max_length=64)
-    theme: str | None = Field(default=None, pattern="^(light|dark|system)$")
+    theme: str | None = Field(default=None, pattern="^(system|light|dark|pink|midnight|purple|forest|sepia)$")
     preferred_genres: list[str] | None = Field(default=None, max_length=30)
     reminder_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     reminder_days: list[int] | None = None

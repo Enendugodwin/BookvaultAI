@@ -50,11 +50,11 @@ async def _send_verification(user: User, token: str) -> None:
     link = f"{settings.frontend_url}/verify-email?token={token}"
     html = report_html(
         "Verify your email",
-        f"Hi {user.display_name}, confirm your email address to finish setting up BookVault AI.",
+        f"Hi {user.display_name}, confirm your email address to finish setting up YVO's Book Vault.",
         [("Verification link", link)],
         "If you did not create this account, you can ignore this message.",
     )
-    result = await send_email(user.email, "Verify your BookVault AI email", html)
+    result = await send_email(user.email, "Verify your YVO's Book Vault email", html)
     if result["status"] == "failed":
         log_event("verification_email_failed", level=30, user_id=user.id)
 
@@ -69,7 +69,7 @@ async def _send_reset(user: User, token: str) -> None:
         [("Reset link", link)],
         "If you did not request a reset, no action is needed.",
     )
-    result = await send_email(user.email, "Reset your BookVault AI password", html)
+    result = await send_email(user.email, "Reset your YVO's Book Vault password", html)
     if result["status"] == "failed":
         log_event("reset_email_failed", level=30, user_id=user.id)
 

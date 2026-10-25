@@ -178,7 +178,8 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
               <p className="text-[12.5px] font-medium">Expected columns</p>
               <p className="mt-1 text-[11.5px] leading-5 text-muted-foreground">
                 title is required. Optional: authors, isbn10, isbn13, status, rating, current_page, page_count,
-                genre, tags, publisher, published_date, description.
+                cover_url, genre, tags, publisher, published_date, description. Cover URLs must start
+                with http:// or https://.
               </p>
               <a
                 href={api.imports.templateUrl}

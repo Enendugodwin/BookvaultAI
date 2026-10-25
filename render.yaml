@@ -1,4 +1,4 @@
-# Render Blueprint for BookVault AI.
+# Render Blueprint for YVO's Book Vault.
 #
 # One Docker web service serves the API and the built frontend (same origin,
 # so cookies are simple). A separate worker processes imports, exports, email,

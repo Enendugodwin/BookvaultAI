@@ -21,7 +21,7 @@ x-backend-env: &backend-env
   S3_SERVER_SIDE_ENCRYPTION: ${S3_SERVER_SIDE_ENCRYPTION:-}
   EMAIL_PROVIDER: ${EMAIL_PROVIDER:-disabled}
   RESEND_API_KEY: ${RESEND_API_KEY:-}
-  EMAIL_FROM: ${EMAIL_FROM:-BookVault AI <no-reply@example.com>}
+  EMAIL_FROM: ${EMAIL_FROM:-YVO's Book Vault <no-reply@example.com>}
   AI_PROVIDER: ${AI_PROVIDER:-disabled}
   AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
   AI_API_KEY: ${AI_API_KEY:-}

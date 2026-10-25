@@ -18,8 +18,8 @@ from app.services.books import add_to_library, find_canonical_book
 
 COLUMNS = [
     "title", "subtitle", "authors", "isbn10", "isbn13", "publisher", "published_date",
-    "language", "page_count", "description", "genre", "tags", "status", "rating",
-    "review", "current_page",
+    "language", "page_count", "cover_url", "description", "genre", "tags", "status",
+    "rating", "review", "current_page",
 ]
 
 TEMPLATE_ROWS = [
@@ -27,6 +27,7 @@ TEMPLATE_ROWS = [
         "title": "The Creative Act", "subtitle": "A Way of Being", "authors": "Rick Rubin",
         "isbn10": "", "isbn13": "9780593652886", "publisher": "Penguin Press",
         "published_date": "2023", "language": "en", "page_count": "432",
+        "cover_url": "https://covers.openlibrary.org/b/isbn/9780593652886-L.jpg",
         "description": "Example row — replace with your own data.",
         "genre": "Creativity", "tags": "craft;practice", "status": "want_to_read",
         "rating": "", "review": "", "current_page": "0",
@@ -77,6 +78,9 @@ def _row_to_input(row: dict, row_number: int) -> tuple[BookInput | None, list[st
                 raise ValueError
         except ValueError:
             errors.append("rating must be between 0 and 5")
+    cover_url = (row.get("cover_url") or "").strip() or None
+    if cover_url and not (cover_url.startswith("https://") or cover_url.startswith("http://")):
+        errors.append("cover_url must start with http:// or https://")
     status = (row.get("status") or "want_to_read").strip() or "want_to_read"
     if status not in ("want_to_read", "reading", "completed", "paused", "abandoned", "rereading"):
         errors.append(f"unknown status '{status}'")
@@ -93,6 +97,7 @@ def _row_to_input(row: dict, row_number: int) -> tuple[BookInput | None, list[st
             published_date=(row.get("published_date") or "").strip() or None,
             language=(row.get("language") or "").strip() or None,
             page_count=page_count,
+            cover_url=cover_url,
             description=(row.get("description") or "").strip() or None,
             genre=(row.get("genre") or "").strip() or None,
             tags=tags,
@@ -134,6 +139,7 @@ def parse_content(content: str, kind: str) -> list[dict]:
                 "published_date": entry.get("published_date", ""),
                 "language": entry.get("language", ""),
                 "page_count": entry.get("page_count", ""),
+                "cover_url": entry.get("cover_url", ""),
                 "description": entry.get("description", ""),
                 "genre": entry.get("genre", ""),
                 "tags": ";".join(entry.get("tags") or []) if isinstance(entry.get("tags"), list) else entry.get("tags", ""),

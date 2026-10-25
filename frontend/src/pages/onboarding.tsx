@@ -67,7 +67,7 @@ export function OnboardingPage() {
           <span className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background">
             <BookOpen className="h-5 w-5" />
           </span>
-          <span className="font-display text-lg font-semibold">BookVault</span>
+          <span className="font-display text-lg font-semibold">YVO's Book Vault</span>
         </div>
         <Button variant="ghost" size="sm" onClick={() => finish.mutate(true)} loading={finish.isPending && finish.variables === true}>
           Skip setup
@@ -107,7 +107,7 @@ export function OnboardingPage() {
                 Hello, {user?.display_name.split(" ")[0]}. Let's build a reading practice.
               </h1>
               <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-muted-foreground">
-                BookVault keeps your library, sessions, notes and goals in one private place.
+                YVO's Book Vault keeps your library, sessions, notes and goals in one private place.
                 Setup takes about a minute, and everything can be changed later.
               </p>
               <div className="mx-auto mt-7 grid max-w-md gap-2.5 text-left">
@@ -249,7 +249,7 @@ export function OnboardingPage() {
               </Button>
             ) : (
               <Button onClick={() => finish.mutate(false)} loading={finish.isPending && finish.variables === false}>
-                Enter BookVault <ArrowRight className="h-4 w-4" />
+                Enter YVO's Book Vault <ArrowRight className="h-4 w-4" />
               </Button>
             )}
           </div>

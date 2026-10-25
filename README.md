@@ -1,10 +1,12 @@
-# BookVault AI
+# YVO's Book Vault
 
 A cloud-ready reading platform: library and catalogue management, a reading
-timer and session history, analytics and goals, notes/highlights/journal, and an
-optional AI assistant that is grounded in your own books and notes.
+timer and session history, analytics and goals, notes/highlights/journal, an
+optional AI assistant that is grounded in your own books and notes, a
+role-guarded administrator portal, eight visual themes, and a mobile-first app
+shell.
 
-The app is a working full-stack build: **45 backend tests and 15 frontend tests
+The app is a working full-stack build: **48 backend tests and 15 frontend tests
 pass**, the Python end-to-end smoke script passes, and the production frontend
 build succeeds. It has **not** been deployed to a public cloud account; see
 [Deployment status](#deployment-status).
@@ -46,10 +48,16 @@ build succeeds. It has **not** been deployed to a public cloud account; see
   HttpOnly cookie, per-session CSRF tokens and session revocation
 - Dedicated email-verification and password-reset pages, with expired/used
   token handling that explains what to do next
-- Onboarding, profile, timezone, theme, display preferences and data export
+- Onboarding, profile, timezone, display preferences and data export
+- Eight themes: System, Parchment, Night, Pink, Midnight, Purple, Forest, Sepia
 - In-app notifications, weekly/monthly report previews, optional Resend email
 - Background exports as CSV, JSON, Markdown, PDF or ZIP
-- Responsive light/dark "literary" interface with accessible focus states
+- Mobile bottom navigation, slide-over menu, safe-area spacing and stacked
+  cards/tables that work down to 320 px
+- Administrator portal at `/admin`: account search and filters, activity feed,
+  suspend/reactivate, promote/demote, revoke sessions and delete accounts, with
+  self-lockout and last-admin guards
+- Responsive "literary" interface with accessible focus states
 
 ## Quick start (local)
 
@@ -97,8 +105,16 @@ Open <http://localhost:5173>. The seed script prints the demo credentials:
 - Email: `demo@bookvault.io`
 - Password: `bookvault-demo-2026`
 
-Change or delete this account before exposing the app. Re-run the seed with
-`--reset` to rebuild its data.
+Change or delete this account before exposing the app. The local demo account is
+also an administrator, so `/admin` is available immediately after sign-in.
+Re-run the seed with `--reset` to rebuild its data.
+
+In a real deployment the first registered account is a normal reader. Promote it
+from `backend/` after registration:
+
+```powershell
+..\.venv\Scripts\python.exe scripts\admin.py promote owner@example.com
+```
 
 ### macOS / Linux
 
@@ -121,7 +137,7 @@ npm run typecheck
 npm run build
 ```
 
-Expected: `45 passed`, `ALL SMOKE CHECKS PASSED`, `15 passed`, and a Vite build
+Expected: `48 passed`, `ALL SMOKE CHECKS PASSED`, `15 passed`, and a Vite build
 in `frontend/dist`.
 
 ## Configuration
@@ -159,7 +175,8 @@ Included:
 - `docker.env.example` - environment template for Compose
 - `render.yaml` - Render blueprint (Docker web service + Python worker +
   managed PostgreSQL)
-- `frontend/vercel.json` - optional separate static frontend on Vercel
+- `vercel.json` (repository root) and `frontend/vercel.json` - static frontend
+  on Vercel, with SPA rewrites, CSP and immutable asset caching
 - `.github/workflows/ci.yml` - backend tests plus frontend typecheck/tests/build
 
 ### Deployment status
@@ -169,7 +186,7 @@ Included:
 | Production build | Passes locally (`npm run build`) |
 | Container image | Authored, **not built** (Docker unavailable on this host) |
 | Render blueprint | Authored, **not synced** (no Render account/token) |
-| Vercel config | Authored, **not deployed** (no Vercel token) |
+| Vercel config | Authored at the repo root and in `frontend/`, **not deployed** (no Vercel token) |
 | Managed PostgreSQL | **Not provisioned** |
 | S3/R2 bucket | **Not provisioned** |
 | Resend / AI provider | **Not configured** (features stay disabled) |
@@ -190,6 +207,9 @@ Highlights:
   revocation on password change
 - Every user-owned query is scoped by `user_id`; object storage keys are
   generated server-side
+- Admin endpoints require `is_admin` on every request and are audited; admins
+  cannot suspend, demote or delete themselves, and the last active admin is
+  protected
 - Imports are previewed before writes; CSV exports guard against spreadsheet
   formula injection
 - AI is disabled unless an operator configures it and the user consents

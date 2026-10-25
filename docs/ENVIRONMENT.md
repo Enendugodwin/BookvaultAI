@@ -1,6 +1,6 @@
 # Environment reference
 
-BookVault AI reads configuration from environment variables. Locally it also
+YVO's Book Vault reads configuration from environment variables. Locally it also
 loads an `.env` file from the current directory or the repository root, so
 running from `backend/` with a root `.env` works.
 
@@ -77,7 +77,7 @@ emails.
 | --- | --- | --- |
 | `EMAIL_PROVIDER` | `disabled` | `disabled` or `resend`. |
 | `RESEND_API_KEY` | empty | Required when Resend is enabled. |
-| `EMAIL_FROM` | `BookVault AI <no-reply@example.com>` | Must be allowed by the provider/domain. |
+| `EMAIL_FROM` | `YVO's Book Vault <no-reply@example.com>` | Must be allowed by the provider/domain. |
 
 If email is disabled, the notifications page explains that delivery is off
 instead of claiming an email was sent. With `EXPOSE_RESET_TOKEN=true` the

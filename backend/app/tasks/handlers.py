@@ -112,9 +112,9 @@ async def handle_email_report(db: Session, job: BackgroundJob) -> dict:
     if not user:
         raise RuntimeError("User missing")
     note = db.get(Notification, job.payload.get("notification_id")) if job.payload.get("notification_id") else None
-    title = job.payload.get("subject") or (note.title if note else "BookVault AI report")
+    title = job.payload.get("subject") or (note.title if note else "YVO's Book Vault report")
     body = job.payload.get("body") or (note.body if note else "")
-    html = report_html(title, body, list(job.payload.get("rows", [])), "Sent because you enabled reading emails in BookVault AI.")
+    html = report_html(title, body, list(job.payload.get("rows", [])), "Sent because you enabled reading emails in YVO's Book Vault.")
     result = await send_email(user.email, title, html)
     if note:
         note.email_status = result["status"]
@@ -127,9 +127,9 @@ async def handle_email_test(db: Session, job: BackgroundJob) -> dict:
         raise RuntimeError("User missing")
     result = await send_email(
         job.payload.get("to") or user.email,
-        "BookVault AI email test",
+        "YVO's Book Vault email test",
         report_html("Email test", "If you received this, transactional email is configured correctly.",
-                    [("Provider", "Resend"), ("Status", "accepted")], "Test message from BookVault AI."),
+                    [("Provider", "Resend"), ("Status", "accepted")], "Test message from YVO's Book Vault."),
     )
     if result["status"] == "failed":
         raise RuntimeError(result["error"] or "Email delivery failed")

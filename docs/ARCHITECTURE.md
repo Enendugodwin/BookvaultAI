@@ -1,4 +1,4 @@
-# BookVault AI — Technical Architecture
+# YVO's Book Vault — Technical Architecture
 
 Status: implemented baseline (local verification complete; cloud deployment blocked on provider credentials).
 

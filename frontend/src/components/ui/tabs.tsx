@@ -14,7 +14,7 @@ export function Tabs<T extends string>({
   return (
     <div
       role="tablist"
-      className={cn("scrollbar-thin flex gap-1 overflow-x-auto rounded-md bg-muted/60 p-1", className)}
+      className={cn("flex max-w-full flex-wrap gap-1 rounded-md bg-muted/60 p-1", className)}
     >
       {tabs.map((tab) => {
         const active = tab.value === value;

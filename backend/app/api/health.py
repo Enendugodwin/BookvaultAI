@@ -20,7 +20,7 @@ VERSION = "1.0.0"
 def health():
     return {
         "status": "ok",
-        "service": "bookvault-api",
+        "service": "yvos-book-vault-api",
         "version": VERSION,
         "environment": settings.environment,
         "time": datetime.now(timezone.utc).isoformat(),

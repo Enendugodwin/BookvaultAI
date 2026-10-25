@@ -17,6 +17,7 @@ class User(UUIDMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     settings: Mapped["UserSettings"] = relationship(

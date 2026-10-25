@@ -1,6 +1,6 @@
 # Deployment guide
 
-This document describes how to deploy BookVault AI. The configuration in this
+This document describes how to deploy YVO's Book Vault. The configuration in this
 repository has **not** been applied to any cloud account. No public URL, cloud
 credentials or managed database exists. Treat every command below as unexecuted
 until you run it in your own account.
@@ -178,15 +178,22 @@ creating a disposable demo; free databases expire and free web services sleep.
 
 ## Topology B - Vercel frontend + API elsewhere
 
-Use `frontend/vercel.json` if you want the SPA on Vercel and the API on Render
-or a VM.
+Vercel can host the **static React frontend only**. The FastAPI API, PostgreSQL
+database and background worker need a long-running host (topology A). Deploy the
+API first and note its HTTPS origin, then choose one of these Vercel setups:
 
-1. Deploy the API first (topology A) and note its HTTPS origin.
-2. In Vercel, import the repo and set **Root Directory** to `frontend`.
-   Framework preset: Vite. Build: `npm run build`. Output: `dist`.
-3. Add `VITE_API_URL=https://api.example.com` to the Vercel project
-   (Production and Preview).
-4. On the backend set:
+- **Root-directory setup:** import the repo, set **Root Directory** to
+  `frontend`, framework preset Vite, build `npm run build`, output `dist`.
+  `frontend/vercel.json` supplies the SPA rewrites, CSP and caching.
+- **Repository-root setup:** leave Root Directory empty. The root
+  `vercel.json` runs `cd frontend && npm ci` / `npm run build` and publishes
+  `frontend/dist`.
+
+Then:
+
+1. Add `VITE_API_URL=https://api.example.com` to the Vercel project
+   (Production and Preview). It must be the API origin, without `/api/v1`.
+2. On the backend set:
 
    ```dotenv
    FRONTEND_URL=https://books.example.com
@@ -198,7 +205,21 @@ or a VM.
    `SameSite=None` requires HTTPS on both sides and may be affected by
    browser third-party-cookie policy. Topology A avoids that class of problem.
 
-5. Redeploy both. Sign in and confirm `/auth/me` returns 200 with credentials.
+3. Redeploy both. Sign in and confirm `/auth/me` returns 200 with credentials.
+
+## Administrator access
+
+The first registered production account is a normal reader. Promote it from the
+backend directory after it exists; there is no unauthenticated bootstrap route:
+
+```bash
+python scripts/admin.py promote owner@example.com
+python scripts/admin.py list
+```
+
+Revoking the last active administrator is refused. Guards also prevent an
+administrator from suspending, demoting, deleting themselves, or revoking their
+own sessions through the API.
 
 ## Database migrations
 

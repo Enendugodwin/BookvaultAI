@@ -92,16 +92,16 @@ def library_csv(db: Session, user: User) -> tuple[str, str, bytes]:
             it["genre"], ";".join(it["tags"]), it["status"], it["rating"], it["review"],
             it["current_page"], it["started_at"], it["completed_at"], it["added_at"],
         ])
-    return f"bookvault-library-{date.today().isoformat()}.csv", "text/csv; charset=utf-8", _csv_bytes(headers, rows)
+    return f"yvos-book-vault-library-{date.today().isoformat()}.csv", "text/csv; charset=utf-8", _csv_bytes(headers, rows)
 
 
 def library_json(db: Session, user: User) -> tuple[str, str, bytes]:
     payload = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
-        "format": "bookvault-library-v1",
+        "format": "yvos-book-vault-library-v1",
         "books": _library_items(db, user),
     }
-    name = f"bookvault-library-{date.today().isoformat()}.json"
+    name = f"yvos-book-vault-library-{date.today().isoformat()}.json"
     return name, "application/json", json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
 
 
@@ -119,7 +119,7 @@ def sessions_csv(db: Session, user: User) -> tuple[str, str, bytes]:
             ub.book.title, s.start_page, s.end_page, s.pages_read, s.notes,
         ])
     headers = ["started_at", "ended_at", "minutes", "book", "start_page", "end_page", "pages_read", "notes"]
-    return f"bookvault-sessions-{date.today().isoformat()}.csv", "text/csv; charset=utf-8", _csv_bytes(headers, data)
+    return f"yvos-book-vault-sessions-{date.today().isoformat()}.csv", "text/csv; charset=utf-8", _csv_bytes(headers, data)
 
 
 def notes_markdown(db: Session, user: User) -> tuple[str, str, bytes]:
@@ -133,7 +133,7 @@ def notes_markdown(db: Session, user: User) -> tuple[str, str, bytes]:
     journal = db.scalars(
         select(JournalEntry).where(JournalEntry.user_id == user.id).order_by(JournalEntry.entry_date)
     ).all()
-    lines = [f"# BookVault AI — Notes & Knowledge", "", f"Exported {datetime.now(timezone.utc).isoformat()}", ""]
+    lines = [f"# YVO's Book Vault — Notes & Knowledge", "", f"Exported {datetime.now(timezone.utc).isoformat()}", ""]
     lines += ["## Notes", ""]
     for n in notes:
         book = books.get(n.user_book_id)
@@ -167,7 +167,7 @@ def notes_markdown(db: Session, user: User) -> tuple[str, str, bytes]:
             if value:
                 lines.append(f"**{label}:** {value}")
         lines.append("")
-    name = f"bookvault-notes-{date.today().isoformat()}.md"
+    name = f"yvos-book-vault-notes-{date.today().isoformat()}.md"
     return name, "text/markdown; charset=utf-8", "\n".join(lines).encode("utf-8")
 
 
@@ -190,7 +190,7 @@ def report_pdf(db: Session, user: User, cfg: UserSettings, period: str = "month"
                             topMargin=18 * mm, bottomMargin=18 * mm)
     styles = getSampleStyleSheet()
     story = [
-        Paragraph("BookVault AI — Reading Report", styles["Title"]),
+        Paragraph("YVO's Book Vault — Reading Report", styles["Title"]),
         Paragraph(f"{start.isoformat()} to {end.isoformat()} · {user.display_name}", styles["Normal"]),
         Spacer(1, 8 * mm),
     ]
@@ -241,7 +241,7 @@ def report_pdf(db: Session, user: User, cfg: UserSettings, period: str = "month"
         "Generated from your stored sessions and library records. Days are grouped in your configured time zone.",
         styles["Italic"])]
     doc.build(story)
-    name = f"bookvault-report-{period}-{today.isoformat()}.pdf"
+    name = f"yvos-book-vault-report-{period}-{today.isoformat()}.pdf"
     return name, "application/pdf", buf.getvalue()
 
 
@@ -249,7 +249,7 @@ def archive_zip(db: Session, user: User, cfg: UserSettings) -> tuple[str, str, b
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("README.txt",
-                    "BookVault AI personal data archive.\n"
+                    "YVO's Book Vault personal data archive.\n"
                     "Contains library.json (complete library), library.csv, sessions.csv, "
                     "notes-and-journal.md, journal.json, highlights.json and account.json.\n")
         name, _, data = library_json(db, user)
@@ -273,5 +273,5 @@ def archive_zip(db: Session, user: User, cfg: UserSettings) -> tuple[str, str, b
             "created_at": user.created_at.isoformat(),
             "timezone": cfg.timezone, "preferred_genres": cfg.preferred_genres,
         }, indent=2))
-    name = f"bookvault-archive-{date.today().isoformat()}.zip"
+    name = f"yvos-book-vault-archive-{date.today().isoformat()}.zip"
     return name, "application/zip", buf.getvalue()

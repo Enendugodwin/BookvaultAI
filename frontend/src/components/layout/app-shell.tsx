@@ -15,6 +15,7 @@ import {
   NotebookPen,
   PenLine,
   Settings,
+  ShieldCheck,
   Sparkles,
   Sun,
   Target,
@@ -26,6 +27,13 @@ import { useAuth } from "@/context/auth";
 import { useTheme } from "@/context/theme";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+
+const MOBILE_NAV = [
+  { to: "/", label: "Home", icon: LayoutDashboard, end: true },
+  { to: "/library", label: "Library", icon: LibraryBig, end: false },
+  { to: "/reading", label: "Reading", icon: BookOpenCheck, end: false },
+  { to: "/notes", label: "Notes", icon: NotebookPen, end: false },
+] as const;
 
 const NAV = [
   { section: "Read", items: [
@@ -49,17 +57,17 @@ function Logo() {
   return (
     <div className="flex items-center gap-2.5">
       <span className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background">
-        <span className="font-display text-lg font-semibold leading-none">B</span>
+        <span className="font-display text-lg font-semibold leading-none">Y</span>
       </span>
       <div>
-        <p className="font-display text-[17px] font-semibold leading-none tracking-tight">BookVault</p>
+        <p className="font-display text-[16px] font-semibold leading-none tracking-tight">YVO&apos;s Book Vault</p>
         <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">AI reading desk</p>
       </div>
     </div>
   );
 }
 
-function NavItems({ unread, onNavigate }: { unread: number; onNavigate?: () => void }) {
+function NavItems({ unread, isAdmin, onNavigate }: { unread: number; isAdmin: boolean; onNavigate?: () => void }) {
   return (
     <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4" aria-label="Main navigation">
       {NAV.map((group) => (
@@ -96,6 +104,21 @@ function NavItems({ unread, onNavigate }: { unread: number; onNavigate?: () => v
         </div>
       ))}
       <div className="mt-auto space-y-0.5 border-t border-border/70 pt-3">
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13.5px] font-medium transition-colors",
+                isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+              )
+            }
+          >
+            <ShieldCheck className="h-4 w-4" />
+            <span className="flex-1">Admin portal</span>
+          </NavLink>
+        )}
         <NavLink
           to="/notifications"
           onClick={onNavigate}
@@ -130,7 +153,7 @@ function NavItems({ unread, onNavigate }: { unread: number; onNavigate?: () => v
 
 function UserMenu() {
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { resolved, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
 
   if (!user) return null;
@@ -159,11 +182,11 @@ function UserMenu() {
           >
             <button
               role="menuitem"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
               className="flex w-full items-center gap-2 rounded-sm px-2.5 py-2 text-[13px] hover:bg-muted"
             >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              {theme === "dark" ? "Light theme" : "Dark theme"}
+              {resolved === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {resolved === "dark" ? "Light appearance" : "Dark appearance"}
             </button>
             <NavLink
               to="/settings"
@@ -213,17 +236,27 @@ export function AppShell() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
   const unread = notifications.data?.unread ?? 0;
 
   return (
     <div className="min-h-full bg-background">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm focus:shadow-lift">
+        Skip to content
+      </a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col border-r border-border/80 bg-card/60 backdrop-blur lg:flex">
         <div className="flex h-16 items-center border-b border-border/60 px-5">
           <button onClick={() => navigate("/")} className="text-left">
             <Logo />
           </button>
         </div>
-        <NavItems unread={unread} />
+        <NavItems unread={unread} isAdmin={Boolean(user?.is_admin)} />
         <div className="border-t border-border/60 p-3">
           <UserMenu />
         </div>
@@ -232,14 +265,14 @@ export function AppShell() {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-foreground/40 animate-fade-in" onClick={() => setMobileOpen(false)} />
-          <aside className="relative flex h-full w-[280px] flex-col border-r border-border bg-card animate-fade-up">
+          <aside className="relative flex h-full w-[min(86vw,320px)] flex-col border-r border-border bg-card animate-fade-up">
             <div className="flex h-16 items-center justify-between border-b border-border/60 px-4">
               <Logo />
               <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <NavItems unread={unread} onNavigate={() => setMobileOpen(false)} />
+            <NavItems unread={unread} isAdmin={Boolean(user?.is_admin)} onNavigate={() => setMobileOpen(false)} />
             <div className="border-t border-border/60 p-3">
               <UserMenu />
             </div>
@@ -254,9 +287,9 @@ export function AppShell() {
           </Button>
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-foreground text-background">
-              <span className="font-display text-sm font-semibold">B</span>
+              <span className="font-display text-sm font-semibold">Y</span>
             </span>
-            <span className="font-display text-[15px] font-semibold">BookVault</span>
+            <span className="font-display text-[14px] font-semibold">YVO&apos;s Book Vault</span>
           </div>
           <div className="ml-auto flex items-center gap-1">
             {user && (
@@ -268,19 +301,56 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
+        <main id="main" className="mx-auto w-full max-w-[1280px] px-4 pb-28 pt-5 sm:px-6 sm:py-6 lg:px-10 lg:pb-9 lg:pt-9">
           <Outlet />
         </main>
 
         <footer className="mx-auto w-full max-w-[1280px] px-4 pb-8 text-[11px] text-muted-foreground/70 sm:px-6 lg:px-10">
           <div className="flex flex-col gap-1 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p>BookVault AI · your reading data stays yours.</p>
+            <p>YVO's Book Vault · your reading data stays yours.</p>
             <p className="inline-flex items-center gap-2">
               <span className="inline-flex h-1.5 w-1.5 rounded-full bg-success" /> Private workspace
             </p>
           </div>
         </footer>
       </div>
+
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-border/80 bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        aria-label="Mobile navigation"
+      >
+        <div className="grid grid-cols-5">
+          {MOBILE_NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                cn(
+                  "flex min-h-[58px] flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
+                )
+              }
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+            </NavLink>
+          ))}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className={cn(
+              "flex min-h-[58px] flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition-colors",
+              mobileOpen ? "text-primary" : "text-muted-foreground hover:text-foreground",
+            )}
+            aria-label="Open all navigation"
+            aria-expanded={mobileOpen}
+          >
+            <Menu className="h-5 w-5" />
+            More
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

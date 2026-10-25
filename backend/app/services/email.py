@@ -51,7 +51,7 @@ def report_html(title: str, intro: str, rows: list[tuple[str, str]], footer: str
     return f"""<!doctype html><html><body style="margin:0;background:#f6f5f2;font-family:Georgia,serif;color:#1c1b19">
 <div style="max-width:560px;margin:32px auto;background:#fff;border:1px solid #e5e2db;border-radius:12px;overflow:hidden">
   <div style="padding:24px 28px;border-bottom:1px solid #eeeae2">
-    <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6d5bd0">BookVault AI</div>
+    <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6d5bd0">YVO's Book Vault</div>
     <h1 style="font-size:24px;margin:8px 0 0">{html_lib.escape(title)}</h1>
   </div>
   <div style="padding:20px 28px">

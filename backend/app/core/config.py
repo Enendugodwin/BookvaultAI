@@ -13,7 +13,7 @@ class Settings(BaseSettings):
         env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="ignore"
     )
 
-    app_name: str = "BookVault AI"
+    app_name: str = "YVO's Book Vault"
     environment: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api/v1"
     secret_key: str = "dev-only-insecure-secret-change-me"
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     email_provider: Literal["disabled", "resend"] = "disabled"
     resend_api_key: str = ""
-    email_from: str = "BookVault AI <no-reply@example.com>"
+    email_from: str = "YVO's Book Vault <no-reply@example.com>"
 
     storage_backend: Literal["local", "s3"] = "local"
     storage_local_dir: str = "./storage"

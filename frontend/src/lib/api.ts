@@ -1,4 +1,8 @@
 import type {
+  AdminActivity,
+  AdminOverview,
+  AdminUser,
+  AdminUserPage,
   AIInsight,
   ImportPreview,
   AIRecommendation,
@@ -190,6 +194,17 @@ export const api = {
     revokeAll: () => post<{ message: string }>("/auth/sessions/revoke-all"),
     deleteAccount: (password: string) =>
       del<{ message: string }>("/auth/account", { password }),
+  },
+  admin: {
+    overview: () => get<AdminOverview>("/admin/overview"),
+    users: (params: Record<string, QueryValue> = {}) =>
+      get<AdminUserPage>(`/admin/users${qs(params)}`),
+    activity: (limit = 30) => get<{ items: AdminActivity[] }>(`/admin/activity${qs({ limit })}`),
+    updateUser: (id: string, payload: { is_active?: boolean; is_admin?: boolean; email_verified?: boolean }) =>
+      patch<{ user: AdminUser }>(`/admin/users/${id}`, payload),
+    revokeSessions: (id: string) =>
+      post<{ message: string; revoked: number }>(`/admin/users/${id}/revoke-sessions`),
+    removeUser: (id: string) => del<{ message: string }>(`/admin/users/${id}`),
   },
   books: {
     list: (params: Record<string, QueryValue> = {}) =>

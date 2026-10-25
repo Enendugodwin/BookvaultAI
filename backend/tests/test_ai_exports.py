@@ -171,11 +171,11 @@ def test_recommendations_are_labeled_unverified(client, auth, monkeypatch):
 def test_import_preview_duplicate_detection_and_commit(client, auth):
     add_book(client, auth["headers"], title="Existing Book", isbn="9781234567890")
     csv = (
-        "title,authors,status,page_count,isbn13\n"
-        "Existing Book,Seth Godin,want_to_read,100,9781234567890\n"
-        "=Malicious,Author,want_to_read,50,\n"
-        ",Missing Title,want_to_read,20,\n"
-        "Fresh Book,New Author,reading,300,\n"
+        "title,authors,status,page_count,isbn13,cover_url\n"
+        "Existing Book,Seth Godin,want_to_read,100,9781234567890,\n"
+        "=Malicious,Author,want_to_read,50,,\n"
+        ",Missing Title,want_to_read,20,,\n"
+        "Fresh Book,New Author,reading,300,,https://covers.openlibrary.org/b/isbn/9780306406157-L.jpg\n"
     )
     r = client.post("/api/v1/imports", headers=auth["headers"],
                     files={"file": ("books.csv", csv, "text/csv")})
@@ -199,6 +199,12 @@ def test_import_preview_duplicate_detection_and_commit(client, auth):
     # title is preserved literally rather than interpreted as a formula in the UI
     r = client.get("/api/v1/books?q=Malicious", headers=auth["headers"])
     assert r.json()["total"] == 1
+    r = client.get("/api/v1/books?q=Fresh Book", headers=auth["headers"])
+    assert r.json()["items"][0]["book"]["cover_url"] == "https://covers.openlibrary.org/b/isbn/9780306406157-L.jpg"
+
+    template = client.get("/api/v1/imports/template", headers=auth["headers"])
+    assert template.status_code == 200
+    assert "cover_url" in template.text
 
 
 def test_export_library_csv_formula_safe_and_zip(client, auth):

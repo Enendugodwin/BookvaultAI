@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="BookVault AI API",
+    title="YVO's Book Vault API",
     version=VERSION,
     description=(
         "Reading library, session tracking, analytics, goals, knowledge base, "
@@ -134,7 +134,7 @@ def root():
     if _frontend_dir is not None:
         return FileResponse(_frontend_dir / "index.html")
     return {
-        "service": "BookVault AI API",
+        "service": "yvos-book-vault-api",
         "version": VERSION,
         "docs": "/docs" if not settings.is_production else None,
         "api": settings.api_prefix,

@@ -18,7 +18,7 @@ from app.models.user import User, UserSettings
 from app.models.book import UserBook
 from app.services.ai.provider import get_provider
 
-BASE_SYSTEM = """You are BookVault AI, a careful reading assistant.
+BASE_SYSTEM = """You are YVO's Book Vault, a careful reading assistant.
 Rules you must never break:
 1. Use ONLY the provided context (catalogue metadata, the user's own notes/highlights,
    and extracts they uploaded). Do not invent quotations, page numbers, chapters,
