@@ -15,6 +15,7 @@ Copy `.env.example` to `.env` for development. Never commit `.env`.
 | `DATABASE_URL` | `sqlite:///./bookvault.db` | Use PostgreSQL in production. Plain `postgresql://` and `postgres://` URLs are mapped to the bundled psycopg 3 driver. |
 | `FRONTEND_URL` | `http://localhost:5173` | Public origin used in email links. No trailing slash. |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated CORS origins. Must include the exact browser origin. |
+| `ADMIN_EMAILS` | `enendugodwin@gmail.com` | Comma-separated emails automatically granted administrator access on registration/login. Keep private; only use addresses you control. |
 
 `DATABASE_URL` examples:
 

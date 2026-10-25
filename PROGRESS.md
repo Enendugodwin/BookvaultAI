@@ -13,7 +13,7 @@ have to guess.
 | Backend application | Complete |
 | Database schema + initial migration | Complete, applied to local SQLite |
 | Frontend application | Complete |
-| Backend tests | 48 passed |
+| Backend tests | 49 passed |
 | Frontend tests | 15 passed |
 | End-to-end API smoke | Passed |
 | TypeScript typecheck | Passed |
@@ -38,6 +38,8 @@ have to guess.
       session list/revoke
 - [x] Admin API: metrics, account search/filter, activity log, account update,
       session revocation, account deletion, self/last-admin guards
+- [x] Configurable `ADMIN_EMAILS` allowlist: matching accounts are promoted
+      automatically on registration and login
 - [x] CSV/JSON import accepts `cover_url` in the template and validates it
 - [x] Library CRUD, facets, stats, completion suggestions
 - [x] Catalogue search/ISBN lookup with Open Library + optional Google Books
@@ -111,7 +113,7 @@ $env:PYTHONPATH="."
 ..\.venv\Scripts\python.exe -m pytest tests -q
 ```
 
-Result: `48 passed` (2 upstream deprecation warnings from Starlette's
+Result: `49 passed` (2 upstream deprecation warnings from Starlette's
 TestClient and ReportLab).
 
 ### End-to-end API smoke

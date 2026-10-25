@@ -52,6 +52,8 @@ services:
         value: lax
       - key: EXPOSE_RESET_TOKEN
         value: "false"
+      - key: ADMIN_EMAILS
+        value: enendugodwin@gmail.com
       - key: FRONTEND_DIST_DIR
         value: /app/frontend_dist
       - key: STORAGE_BACKEND

@@ -34,6 +34,21 @@ def _ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _sync_configured_admin(db: Session, user: User) -> bool:
+    """Grant admin to an allow-listed email, once, when it is observed.
+
+    This is intentionally driven by server configuration rather than a public
+    bootstrap endpoint. It only ever grants access; revocation still happens
+    through ``scripts/admin.py`` or the admin portal.
+    """
+    if user.is_admin or user.email.lower() not in settings.admin_email_set:
+        return False
+    user.is_admin = True
+    audit(db, user.id, "admin.granted_by_config", {"email": user.email})
+    log_event("admin_access_granted", user_id=user.id, email=user.email)
+    return True
+
+
 def _issue_token(db: Session, model, user_id: str, hours: int) -> str:
     raw = new_token()
     now = datetime.now(timezone.utc)
@@ -88,6 +103,7 @@ async def register(payload: RegisterIn, request: Request, response: Response, db
     db.flush()
     db.add(UserSettings(user_id=user.id))
     db.flush()
+    _sync_configured_admin(db, user)
     token = _issue_token(db, EmailVerificationToken, user.id, 48)
     raw_session, session = create_session(db, user, request)
     audit(db, user.id, "account.registered")
@@ -110,6 +126,7 @@ def login(payload: LoginIn, request: Request, response: Response, db: Session = 
         raise Unauthorized("Incorrect email or password.")
     now = datetime.now(timezone.utc)
     user.last_login_at = now
+    _sync_configured_admin(db, user)
     raw, session = create_session(db, user, request)
     audit(db, user.id, "account.login")
     db.commit()

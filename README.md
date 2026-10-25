@@ -6,7 +6,7 @@ optional AI assistant that is grounded in your own books and notes, a
 role-guarded administrator portal, eight visual themes, and a mobile-first app
 shell.
 
-The app is a working full-stack build: **48 backend tests and 15 frontend tests
+The app is a working full-stack build: **49 backend tests and 15 frontend tests
 pass**, the Python end-to-end smoke script passes, and the production frontend
 build succeeds. It has **not** been deployed to a public cloud account; see
 [Deployment status](#deployment-status).
@@ -127,8 +127,11 @@ Change or delete this account before exposing the app. The local demo account is
 also an administrator, so `/admin` is available immediately after sign-in.
 Re-run the seed with `--reset` to rebuild its data.
 
-In a real deployment the first registered account is a normal reader. Promote it
-from `backend/` after registration:
+Accounts listed in `ADMIN_EMAILS` are promoted automatically when they register
+or sign in. The default development value is
+`enendugodwin@gmail.com`; change it before exposing a deployment. Only list
+email addresses you control, because registration does not yet require email
+verification. Other accounts can be promoted from `backend/`:
 
 ```powershell
 ..\.venv\Scripts\python.exe scripts\admin.py promote owner@example.com
@@ -155,7 +158,7 @@ npm run typecheck
 npm run build
 ```
 
-Expected: `48 passed`, `ALL SMOKE CHECKS PASSED`, `15 passed`, and a Vite build
+Expected: `49 passed`, `ALL SMOKE CHECKS PASSED`, `15 passed`, and a Vite build
 in `frontend/dist`.
 
 ## Configuration

@@ -104,3 +104,31 @@ def test_admin_theme_choices_include_named_palettes(client):
         assert r.json()["user"]["settings"]["theme"] == theme
     r = client.patch("/api/v1/auth/settings", headers=headers, json={"theme": "neon"})
     assert r.status_code == 422
+
+def test_configured_admin_email_is_promoted_on_register_and_login(client, db, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "admin_emails", "owner-config@example.com, second@example.com")
+    r = client.post("/api/v1/auth/register", json={
+        "email": "Owner-Config@example.com",
+        "password": PASSWORD,
+        "display_name": "Configured Owner",
+    })
+    assert r.status_code == 201, r.text
+    owner = r.json()["user"]
+    assert owner["is_admin"] is True
+
+    reader = register_user(client, "plain-reader@example.com", "Plain Reader")
+    assert reader["is_admin"] is False
+
+    row = db.get(User, owner["id"])
+    assert row is not None
+    row.is_admin = False
+    db.commit()
+
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "owner-config@example.com", "password": PASSWORD},
+    )
+    assert login.status_code == 200, login.text
+    assert login.json()["user"]["is_admin"] is True

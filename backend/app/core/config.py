@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # Comma-separated account emails that are granted administrator access
+    # automatically on registration and login. Keep this list private and
+    # only use email addresses you control.
+    admin_emails: str = "enendugodwin@gmail.com"
+
     cookie_name: str = "bv_session"
     cookie_secure: bool = False
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
@@ -70,6 +75,10 @@ class Settings(BaseSettings):
     @property
     def origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    @property
+    def admin_email_set(self) -> set[str]:
+        return {e.strip().lower() for e in self.admin_emails.split(",") if e.strip()}
 
     @property
     def ai_enabled(self) -> bool:
