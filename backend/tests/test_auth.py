@@ -12,6 +12,19 @@ def test_health_and_readiness(client):
     assert r.json()["checks"]["database"] is True
 
 
+def test_security_headers_on_api_responses(client):
+    r = client.get("/api/v1/health")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert "default-src 'none'" in r.headers["content-security-policy"]
+    assert r.headers["cache-control"] == "no-store"
+
+    # Swagger UI loads its assets from a CDN, so the SPA policy must not apply.
+    docs = client.get("/docs")
+    assert docs.status_code == 200
+    assert "content-security-policy" not in docs.headers
+
+
 def test_register_sets_cookie_and_returns_csrf(client):
     r = client.post("/api/v1/auth/register", json={
         "email": "New@Example.com", "password": PASSWORD, "display_name": "New Reader",

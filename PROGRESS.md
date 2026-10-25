@@ -13,7 +13,7 @@ have to guess.
 | Backend application | Complete |
 | Database schema + initial migration | Complete, applied to local SQLite |
 | Frontend application | Complete |
-| Backend tests | 44 passed |
+| Backend tests | 45 passed |
 | Frontend tests | 15 passed |
 | End-to-end API smoke | Passed |
 | TypeScript typecheck | Passed |
@@ -93,8 +93,8 @@ $env:PYTHONPATH="."
 ..\.venv\Scripts\python.exe -m pytest tests -q
 ```
 
-Result: `44 passed, 2 warnings in 7.82s` (warnings are upstream deprecations
-from Starlette's TestClient and ReportLab).
+Result: `45 passed` (2 upstream deprecation warnings from Starlette's
+TestClient and ReportLab).
 
 ### End-to-end API smoke
 
@@ -143,6 +143,8 @@ Verified with HTTP and a real headless Chrome session:
 
 - `/`, `/library`, `/books/:id` return the SPA; `/api/v1/*` remains JSON;
   unknown API paths return 404
+- Security headers present: API responses use `default-src 'none'` CSP and
+  `no-store`; SPA HTML uses a self-only script CSP with no browser violations
 - Login works; all main pages render without an error boundary
 - Add-book dialog creates a book; searchable
 - CSV import previews, queues, the worker commits it, and the book appears

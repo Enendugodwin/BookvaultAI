@@ -4,7 +4,7 @@ A cloud-ready reading platform: library and catalogue management, a reading
 timer and session history, analytics and goals, notes/highlights/journal, and an
 optional AI assistant that is grounded in your own books and notes.
 
-The app is a working full-stack build: **44 backend tests and 15 frontend tests
+The app is a working full-stack build: **45 backend tests and 15 frontend tests
 pass**, the Python end-to-end smoke script passes, and the production frontend
 build succeeds. It has **not** been deployed to a public cloud account; see
 [Deployment status](#deployment-status).
@@ -121,7 +121,7 @@ npm run typecheck
 npm run build
 ```
 
-Expected: `44 passed`, `ALL SMOKE CHECKS PASSED`, `15 passed`, and a Vite build
+Expected: `45 passed`, `ALL SMOKE CHECKS PASSED`, `15 passed`, and a Vite build
 in `frontend/dist`.
 
 ## Configuration

@@ -17,6 +17,21 @@ SECURITY_HEADERS = {
     "Cross-Origin-Opener-Policy": "same-origin",
 }
 
+# The SPA needs its own assets, Google Fonts, remote cover images and API calls.
+# React style props require 'unsafe-inline' for styles; scripts stay self-only.
+SPA_CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com data:; "
+    "img-src 'self' data: blob: https:; "
+    "connect-src 'self' https:; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'"
+)
+
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
     """Adds a request id, security headers, and structured request timing."""
@@ -45,6 +60,11 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 "Content-Security-Policy",
                 "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
             )
+        elif (
+            response.headers.get("content-type", "").startswith("text/html")
+            and not request.url.path.startswith(("/docs", "/redoc"))
+        ):
+            response.headers.setdefault("Content-Security-Policy", SPA_CSP)
         log_event(
             "request",
             path=request.url.path,
