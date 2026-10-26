@@ -11,7 +11,7 @@ have to guess.
 | Area | State |
 | --- | --- |
 | Backend application | Complete |
-| Database schema + initial migration | Complete, applied to local SQLite |
+| Database schema + migrations | Complete; applied locally and to production Neon/Vercel Postgres |
 | Frontend application | Complete |
 | Backend tests | 57 passed |
 | Frontend tests | 15 passed |
@@ -22,8 +22,11 @@ have to guess.
 | Mobile responsiveness | Verified at 320, 375 and 390 px: no horizontal overflow on 13 routes |
 | Demo seed | Complete and verified |
 | Deployment assets | Authored and updated for all-in-one Vercel (root `main.py`, `vercel.json`, Vercel Postgres + Blob, cron), plus Docker/Compose/Render |
-| Cloud deployment | **Not performed here** - connect your Vercel project to Postgres and Blob, then deploy |
-| Public URL / cloud database | Use your Vercel project; no URL is asserted by this file |
+| Cloud deployment | **Live** on Vercel: `godswim/bookvaultai`, deployment `dpl_CqLRcEjiE8noV6DxEGkSjRgwE9ur` |
+| Public URL | **https://bookvaultai.vercel.app** |
+| Production database | Neon/Vercel Postgres connected; `/api/v1/health/ready` reports `database: true` |
+| Production storage | Private Vercel Blob connected; CSV export + download verified |
+| Production smoke | Register, create book, list, export, download, delete account: **passed** |
 
 ## Checklist
 
@@ -191,50 +194,31 @@ provider treats that as "signed out".
 
 ## Deployment status
 
-The code and configuration for the all-in-one Vercel deployment are complete,
-but no cloud deployment was performed from this workspace. There are no Vercel
-credentials, connected Postgres store, Blob store or live URL asserted here.
+**Live and verified** on Vercel:
 
-What is verified locally:
+- Public URL: **https://bookvaultai.vercel.app**
+- Project: `godswim/bookvaultai`, root directory `.`, FastAPI preset
+- Production deployment: `dpl_CqLRcEjiE8noV6DxEGkSjRgwE9ur` (commit `987080b`)
+- Database: Neon/Vercel Postgres, connected for Production
+- Storage: private Vercel Blob, connected for Production
+- Cron: daily at 08:00 UTC, `CRON_SECRET` set as a Production secret
 
-- `main.py` imports the FastAPI app and serves `/`, SPA routes and
-  `/api/v1/health` from one process.
-- Vercel-specific URL resolution (`POSTGRES_URL` over `DATABASE_URL`), private
-  Vercel Blob access, cron authentication and inline export execution are tested.
-- The full backend, frontend and build checks pass.
+Verified against production on 2026-10-26:
 
-What still requires your account:
+- `/api/v1/health` returned 200 with `environment: production` and no Render
+  headers.
+- `/api/v1/health/ready` returned 200 with `database: true`,
+  `storage_backend: vercel_blob`, and no config problems.
+- `/`, `/library` and the built JS asset returned 200 from the same origin.
+- Register → create book → list books → CSV export → download → delete account
+  passed against the live database and Blob store.
+- The cron endpoint rejected a missing credential with 401.
 
-- Connect Vercel Postgres and confirm `POSTGRES_URL` /
-  `POSTGRES_URL_NON_POOLING`.
-- Create a private Vercel Blob store and set `STORAGE_BACKEND=vercel_blob`.
-- Set `ENVIRONMENT=production`, a 32+ character `SECRET_KEY`,
-  `COOKIE_SECURE=true`, `COOKIE_SAMESITE=lax`, `EXPOSE_RESET_TOKEN=false`,
-  `ADMIN_EMAILS` and `CRON_SECRET`.
-- Deploy at the repository root (not `frontend/`) and verify
-  `/api/v1/health/ready`.
+## Remaining account-level checks
 
-Do not claim a URL, credential, uptime or live integration until one exists.
-
-## Next steps for the Vercel deployment
-
-1. Push the repository and import it in Vercel with **Root Directory** left at
-   the repository root.
-2. Connect **Vercel Postgres**; confirm `POSTGRES_URL` and
-   `POSTGRES_URL_NON_POOLING` are present.
-3. Connect a **private Vercel Blob** store and set
-   `STORAGE_BACKEND=vercel_blob`.
-4. Add the production environment variables listed in
-   `docs/DEPLOYMENT.md`; remove any old Render `DATABASE_URL` or
-   `VITE_API_URL`.
-5. Deploy, then check `/api/v1/health` and `/api/v1/health/ready`.
-6. Register or sign in as the `ADMIN_EMAILS` address and confirm the
-   administrator role.
-7. Create a book, export it, and download it to verify Postgres + Blob + inline
-   job execution.
-8. Confirm the cron endpoint rejects missing credentials and accepts the
-   `CRON_SECRET` bearer token.
-9. Enable Postgres backups, a log drain and an uptime check on
+1. Register or sign in with the `ADMIN_EMAILS` address and confirm the
+   administrator role; the config-driven promotion logic is unit-tested.
+2. Enable Postgres backups, a log drain and an uptime check on
    `/api/v1/health`.
-10. Rotate or delete the old Render database credentials; the password shared
-    in chat is compromised.
+3. Rotate or delete the old Render database credentials; the password shared
+   in chat is compromised.

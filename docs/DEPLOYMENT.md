@@ -9,9 +9,18 @@ YVO's Book Vault runs as one Vercel project:
 - **Jobs** — user-triggered jobs run inside the request; a daily Vercel Cron
   drains schedules and leftovers.
 
-The repository is configured for this topology, but deploying still requires
-your Vercel account. No deployment URL or cloud credential is created by the
-repository.
+## Current production deployment
+
+- **URL:** https://bookvaultai.vercel.app
+- **Vercel project:** `godswim/bookvaultai` (root directory `.`, FastAPI preset)
+- **Production deployment:** `dpl_CqLRcEjiE8noV6DxEGkSjRgwE9ur`
+- **Database:** Neon/Vercel Postgres, production environment connected
+- **Storage:** private Vercel Blob, production environment connected
+- **Cron:** daily at 08:00 UTC with `CRON_SECRET`
+
+The steps below document how that deployment was built and how to reproduce it
+in a fresh Vercel account. Never commit `.env` files, connection strings, tokens
+or the `.vercel/` directory.
 
 ## 1. Import the project
 
@@ -22,22 +31,28 @@ repository.
    function.
 4. Vercel should detect the FastAPI entrypoint `main.py`. Leave the framework
    preset and build command from `vercel.json` in place:
-   - Build: `cd frontend && npm ci && npm run build`
+   - Build: `cd frontend && npm ci && npm run build && rm -rf ../backend/frontend_dist && cp -r dist ../backend/frontend_dist`
    - Function: `main.py`, 1024 MB, 60 s max duration (raise to 300 on Pro if
-     you use long AI calls)
+     you use long AI calls), with `includeFiles: "backend/**"`
    - Output: served by FastAPI, not a separate static output directory
+
+   The build copies the Vite bundle to `backend/frontend_dist` so it is inside
+   the function bundle. `main.py` falls back to `frontend/dist` for local runs.
 
 `vercel.json` also defines the SPA headers, CSP and the daily cron. The old
 `frontend/vercel.json` proxy to Render has been removed.
 
 ### If the project already exists
 
-The current `https://bookvaultai.vercel.app` project was created as a
-frontend-only project. Changing the code is not enough: in
-**Settings → General → Root Directory**, clear `frontend` so the project root is
-the repository root, remove any `VITE_API_URL` that points at Render, and
-redeploy. Until you do that, Vercel keeps serving the old frontend and its
-`/api/*` proxy to Render.
+`bookvaultai` was originally a frontend-only project. It has been converted:
+
+- **Settings → General → Root Directory** is `.`.
+- The framework preset is **FastAPI**; build/install/output settings are
+  auto-detected and `vercel.json` supplies the build command.
+- The stale `VITE_API_URL` pointing at Render was removed.
+- The Vite project no longer contains a `/api/*` proxy to Render.
+
+If you recreate the project, repeat those changes before the first deployment.
 
 ## 2. Create the Vercel Postgres database
 

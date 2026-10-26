@@ -204,17 +204,21 @@ Included:
 
 | Item | Status |
 | --- | --- |
-| Production build | Passes locally (`npm run build`) |
-| Vercel all-in-one config | Authored (`main.py`, `vercel.json`); **not deployed here** |
-| Vercel Postgres | **Connect the store in your Vercel project** |
-| Vercel Blob | **Create a private store in your Vercel project** |
-| Container image | Authored, **not built** (Docker unavailable on this host) |
+| Production URL | **https://bookvaultai.vercel.app** |
+| Vercel project | `godswim/bookvaultai`, root directory `.`, FastAPI preset |
+| Database | **Connected** — Neon/Vercel Postgres; `/health/ready` reports `database: true` |
+| File storage | **Connected** — private Vercel Blob; production export/download verified |
+| Frontend + API | **Same origin** — `/`, `/library`, assets and `/api/v1/*` all return 200 |
+| Backend tests | **57 passed**, including Vercel URL, Blob, cron and inline-job tests |
+| Frontend checks | **15 tests passed**, typecheck clean, production build succeeds |
+| Production smoke | Register → create book → list → CSV export → download → delete account **passed** |
+| Cron auth | `/api/v1/internal/jobs/tick` rejects missing/invalid credentials with 401 |
 | Resend / AI provider | **Not configured** (features stay disabled) |
-| Public URL / credentials | Use your own Vercel project; do not invent or share any |
 
-The app auto-applies Alembic migrations on the first cold start using a
-PostgreSQL advisory lock. The cron endpoint requires `CRON_SECRET`; without it it
-returns 503 rather than running unauthenticated.
+Alembic applies migrations on cold start under a PostgreSQL advisory lock. The
+cron endpoint requires `CRON_SECRET`; the current production deployment has it
+set. Sign in with the address in `ADMIN_EMAILS` to activate the administrator
+role.
 
 ## Architecture and security
 
