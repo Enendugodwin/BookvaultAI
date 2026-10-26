@@ -94,13 +94,23 @@ class Settings(BaseSettings):
         database to the project is enough to switch the app over.
         """
         if self.is_vercel:
-            for key in ("POSTGRES_URL", "DATABASE_URL", "POSTGRES_URL_NON_POOLING"):
+            for key in (
+                "POSTGRES_URL",
+                "DATABASE_URL",
+                "DATABASE_URL_UNPOOLED",
+                "POSTGRES_URL_NON_POOLING",
+            ):
                 value = os.getenv(key, "").strip()
                 if value:
                     return value
         if self.database_url.strip():
             return self.database_url.strip()
-        for key in ("DATABASE_URL", "POSTGRES_URL", "POSTGRES_URL_NON_POOLING"):
+        for key in (
+            "DATABASE_URL",
+            "POSTGRES_URL",
+            "DATABASE_URL_UNPOOLED",
+            "POSTGRES_URL_NON_POOLING",
+        ):
             value = os.getenv(key, "").strip()
             if value:
                 return value
@@ -110,9 +120,10 @@ class Settings(BaseSettings):
     def migration_database_url(self) -> str:
         """Use a direct (non-pooled) connection for Alembic when available."""
         if self.is_vercel:
-            direct = os.getenv("POSTGRES_URL_NON_POOLING", "").strip()
-            if direct:
-                return direct
+            for key in ("POSTGRES_URL_NON_POOLING", "DATABASE_URL_UNPOOLED"):
+                direct = os.getenv(key, "").strip()
+                if direct:
+                    return direct
         return self.resolved_database_url
 
     @property

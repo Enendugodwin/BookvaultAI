@@ -3,7 +3,7 @@
   "buildCommand": "cd frontend && npm ci && npm run build",
   "functions": {
     "main.py": {
-      "maxDuration": 300,
+      "maxDuration": 60,
       "memory": 1024,
       "includeFiles": [
         "backend/**",

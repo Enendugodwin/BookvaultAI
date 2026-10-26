@@ -18,7 +18,9 @@ from app.tasks.runner import run_job_now
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
-MAX_BYTES = 5 * 1024 * 1024
+# Keep imports under both the app limit and Vercel's ~4.5 MB request-body cap.
+MAX_MB = min(5, max(1, settings.max_upload_mb))
+MAX_BYTES = MAX_MB * 1024 * 1024
 
 
 @router.get("/template", response_class=PlainTextResponse)
@@ -42,7 +44,7 @@ async def preview_import(
         raise AppError("invalid_file_type", "Upload a .csv or .json file.", 400)
     raw = await file.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
-        raise AppError("file_too_large", "Import files are limited to 5 MB.", 413)
+        raise AppError("file_too_large", f"Import files are limited to {MAX_MB} MB.", 413)
     try:
         content = raw.decode("utf-8-sig")
     except UnicodeDecodeError:

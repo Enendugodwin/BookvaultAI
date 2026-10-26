@@ -154,7 +154,7 @@ same endpoint with the bearer secret.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `MAX_UPLOAD_MB` | `20` | Upload size cap (AI documents). The importer has its own 5 MB cap. |
+| `MAX_UPLOAD_MB` | `20` | Upload size cap for AI documents and imports. Set `4` on Vercel because Functions cap request bodies near 4.5 MB. |
 | `MAX_IMPORT_ROWS` | `5000` | Rows accepted in one import. |
 | `LOG_LEVEL` | `INFO` | Structured JSON logs to stdout. |
 | `SENTRY_DSN` | empty | Reserved for error reporting; not wired to an SDK. |

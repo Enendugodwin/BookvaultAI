@@ -160,7 +160,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                 <>
                   <FileUp className="h-7 w-7 text-muted-foreground" />
                   <p className="mt-3 text-sm font-medium">Drop a CSV or JSON file here</p>
-                  <p className="mt-1 text-[12px] text-muted-foreground">Up to 5 MB · UTF-8 encoded</p>
+                  <p className="mt-1 text-[12px] text-muted-foreground">Up to 5 MB (4 MB on Vercel) · UTF-8 encoded</p>
                   <Button className="mt-4" size="sm" onClick={() => inputRef.current?.click()}>
                     Choose file
                   </Button>

@@ -23,11 +23,21 @@ repository.
 4. Vercel should detect the FastAPI entrypoint `main.py`. Leave the framework
    preset and build command from `vercel.json` in place:
    - Build: `cd frontend && npm ci && npm run build`
-   - Function: `main.py`, 1024 MB, 300 s max duration
+   - Function: `main.py`, 1024 MB, 60 s max duration (raise to 300 on Pro if
+     you use long AI calls)
    - Output: served by FastAPI, not a separate static output directory
 
 `vercel.json` also defines the SPA headers, CSP and the daily cron. The old
 `frontend/vercel.json` proxy to Render has been removed.
+
+### If the project already exists
+
+The current `https://bookvaultai.vercel.app` project was created as a
+frontend-only project. Changing the code is not enough: in
+**Settings → General → Root Directory**, clear `frontend` so the project root is
+the repository root, remove any `VITE_API_URL` that points at Render, and
+redeploy. Until you do that, Vercel keeps serving the old frontend and its
+`/api/*` proxy to Render.
 
 ## 2. Create the Vercel Postgres database
 
@@ -90,10 +100,16 @@ Preview if you want previews to work):
 | `CRON_SECRET` | a random secret, e.g. `openssl rand -hex 24` |
 | `AUTO_MIGRATE` | `true` |
 | `CRON_JOB_LIMIT` | `2` |
+| `MAX_UPLOAD_MB` | `4` |
 
 `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`, `BLOB_STORE_ID` and the Blob OIDC
 credentials come from the Vercel integrations. Do not paste database passwords
 or Blob tokens into the repository.
+
+Vercel Functions accept roughly 4.5 MB request bodies. Set
+`MAX_UPLOAD_MB=4` so imports and AI-document uploads fail with a clear app error
+rather than an edge 413. Larger uploads need direct-to-Blob uploads or the
+container/S3 topology.
 
 Optional:
 
