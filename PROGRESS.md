@@ -198,7 +198,7 @@ provider treats that as "signed out".
 
 - Public URL: **https://bookvaultai.vercel.app**
 - Project: `godswim/bookvaultai`, root directory `.`, FastAPI preset
-- Production deployment: `dpl_CqLRcEjiE8noV6DxEGkSjRgwE9ur` (commit `987080b`)
+- Production deployment: current `main` deployment behind the public alias
 - Database: Neon/Vercel Postgres, connected for Production
 - Storage: private Vercel Blob, connected for Production
 - Cron: daily at 08:00 UTC, `CRON_SECRET` set as a Production secret

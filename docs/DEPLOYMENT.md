@@ -13,7 +13,7 @@ YVO's Book Vault runs as one Vercel project:
 
 - **URL:** https://bookvaultai.vercel.app
 - **Vercel project:** `godswim/bookvaultai` (root directory `.`, FastAPI preset)
-- **Production deployment:** `dpl_CqLRcEjiE8noV6DxEGkSjRgwE9ur`
+- **Production deployment:** current `main` deployment behind the public alias
 - **Database:** Neon/Vercel Postgres, production environment connected
 - **Storage:** private Vercel Blob, production environment connected
 - **Cron:** daily at 08:00 UTC with `CRON_SECRET`
