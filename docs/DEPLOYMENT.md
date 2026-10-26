@@ -1,343 +1,260 @@
 # Deployment guide
 
-This document describes how to deploy YVO's Book Vault. The configuration in this
-repository has **not** been applied to any cloud account. No public URL, cloud
-credentials or managed database exists. Treat every command below as unexecuted
-until you run it in your own account.
+YVO's Book Vault runs as one Vercel project:
 
-## What you need
+- **Frontend** — the Vite build in `frontend/`, served by the same FastAPI app.
+- **API** — `main.py` at the repository root is the Vercel Python entrypoint.
+- **Database** — Vercel Postgres (Neon), exposed as `POSTGRES_URL`.
+- **Files** — a private Vercel Blob store.
+- **Jobs** — user-triggered jobs run inside the request; a daily Vercel Cron
+  drains schedules and leftovers.
 
-| Requirement | Why | Status in this workspace |
-| --- | --- | --- |
-| Git repository on GitHub/GitLab | Render/Vercel deploy from Git | Local git repo only; no remote configured |
-| Render account (or another container host) | API, worker, PostgreSQL | Not available here |
-| Docker Engine 24+ (for Compose) | Build/run the image locally or on a VM | Docker was not installed on this machine, so the image was never built |
-| Cloudflare R2 or AWS S3 bucket | Durable uploads in production | Not provisioned |
-| Resend account + verified domain | Verification/reset/reminder email | Optional; not configured |
-| OpenAI-compatible key or local Ollama | AI features | Optional; not configured |
-| Domain + TLS certificate | Secure cookies and email links | Not configured |
+The repository is configured for this topology, but deploying still requires
+your Vercel account. No deployment URL or cloud credential is created by the
+repository.
 
-The application, migrations, tests and build all work without these services.
-Only the deployment itself is blocked.
+## 1. Import the project
 
-## Topology A - one container (recommended)
+1. Push the repository to GitHub.
+2. In Vercel, **Add New → Project** and import the repository.
+3. Set **Root Directory** to the repository root (leave it empty). Do **not**
+   select `frontend/`. The root project contains both the Vite app and the Python
+   function.
+4. Vercel should detect the FastAPI entrypoint `main.py`. Leave the framework
+   preset and build command from `vercel.json` in place:
+   - Build: `cd frontend && npm ci && npm run build`
+   - Function: `main.py`, 1024 MB, 300 s max duration
+   - Output: served by FastAPI, not a separate static output directory
 
-The Docker image builds the React app and serves it from FastAPI, so the
-browser talks to a single origin. Cookies use `SameSite=Lax` and no CORS
-preflight is needed.
+`vercel.json` also defines the SPA headers, CSP and the daily cron. The old
+`frontend/vercel.json` proxy to Render has been removed.
 
-```text
-Internet -> TLS proxy / platform -> bookvault-api (FastAPI + static SPA)
-                                          |
-                                          +-> PostgreSQL
-                                          +-> S3 / R2 (uploads)
-                                          +-> Resend (optional)
-                                          +-> AI provider (optional)
+## 2. Create the Vercel Postgres database
 
-bookvault-worker -> PostgreSQL (jobs) -> S3 / Resend / AI
-```
+1. In the Vercel project, open **Storage → Create Database → Postgres**.
+2. Connect it to the project and choose a region close to the functions.
+3. Confirm the project now has `POSTGRES_URL` and
+   `POSTGRES_URL_NON_POOLING` in **Settings → Environment Variables**.
 
-### A1. Docker Compose on a VM
+The app prefers `POSTGRES_URL` at runtime and uses
+`POSTGRES_URL_NON_POOLING` for Alembic. Remove any old `DATABASE_URL` that points
+at Render; it is ignored on Vercel when `POSTGRES_URL` exists, but leaving it is
+confusing.
 
-1. Install Docker Engine and the Compose plugin.
-2. Copy the repo to the VM.
-3. Create the environment file:
+### Migrations
 
-   ```bash
-   cp docker.env.example .env
-   ```
+Alembic runs automatically on the first cold start. The app takes a PostgreSQL
+advisory lock so concurrent cold starts cannot apply migrations twice. The
+function bundle includes `backend/alembic.ini` and `backend/migrations/`.
 
-4. Edit `.env`:
+To run migrations as a separate release step instead:
 
-   ```dotenv
-   ENVIRONMENT=production
-   COOKIE_SECURE=true
-   APP_URL=https://books.example.com
-   PORT=8000
-   SECRET_KEY=<openssl rand -hex 32>
-   POSTGRES_PASSWORD=<strong random password>
-   STORAGE_BACKEND=s3
-   S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
-   S3_BUCKET=bookvault
-   S3_ACCESS_KEY_ID=...
-   S3_SECRET_ACCESS_KEY=...
-   S3_REGION=auto
-   ```
-
-   For a local HTTP smoke test only, use `ENVIRONMENT=development`,
-   `COOKIE_SECURE=false`, `APP_URL=http://localhost:8000`, and
-   `STORAGE_BACKEND=local`.
-
-5. Build and start:
+1. Set `AUTO_MIGRATE=false` in Vercel.
+2. From a machine with the non-pooling URL:
 
    ```bash
-   docker compose up -d --build
-   docker compose ps
-   docker compose logs -f migrate api worker
+   cd backend
+   export DATABASE_URL='<POSTGRES_URL_NON_POOLING>'
+   alembic upgrade head
    ```
 
-   The `migrate` service runs `alembic upgrade head` once and must exit 0
-   before `api` and `worker` start. The API serves the SPA on
-   `http://localhost:8000`; `/api/v1/health` should return 200.
+3. Redeploy.
 
-6. Put TLS in front. Example Caddyfile:
+## 3. Create private Blob storage
 
-   ```caddy
-   books.example.com {
-       reverse_proxy 127.0.0.1:8000
-   }
-   ```
+1. In the Vercel project, open **Storage → Create → Blob**.
+2. Create a **private** store and connect it to the project.
+3. Set `STORAGE_BACKEND=vercel_blob`.
+4. A connected store injects `BLOB_STORE_ID` / OIDC credentials. For local
+   development, set `BLOB_READ_WRITE_TOKEN` instead.
 
-   Or nginx:
+Uploads and generated exports are private. The API streams them only after an
+authenticated, owner-scoped request. Do not switch the app to public blob URLs.
 
-   ```nginx
-   server {
-       listen 443 ssl http2;
-       server_name books.example.com;
-       client_max_body_size 25m;
+## 4. Production environment variables
 
-       location / {
-           proxy_pass http://127.0.0.1:8000;
-           proxy_set_header Host $host;
-           proxy_set_header X-Forwarded-Proto $scheme;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-       }
-   }
-   ```
+Set these in **Vercel → Settings → Environment Variables** for Production (and
+Preview if you want previews to work):
 
-7. Create the first account through `/register`, complete onboarding, and use
-   the app. Do **not** run `scripts/seed.py` against production; production
-   seeding requires an explicit `--force` for a reason.
+| Variable | Value |
+| --- | --- |
+| `ENVIRONMENT` | `production` |
+| `SECRET_KEY` | `openssl rand -hex 32` (32+ random characters) |
+| `COOKIE_SECURE` | `true` |
+| `COOKIE_SAMESITE` | `lax` |
+| `EXPOSE_RESET_TOKEN` | `false` |
+| `ADMIN_EMAILS` | `enendugodwin@gmail.com` (or the owner address you control) |
+| `FRONTEND_URL` | `https://bookvaultai.vercel.app` or your custom HTTPS origin |
+| `ALLOWED_ORIGINS` | same exact origin as `FRONTEND_URL` |
+| `STORAGE_BACKEND` | `vercel_blob` |
+| `CRON_SECRET` | a random secret, e.g. `openssl rand -hex 24` |
+| `AUTO_MIGRATE` | `true` |
+| `CRON_JOB_LIMIT` | `2` |
 
-8. Verify the worker is alive before relying on imports/exports/AI:
+`POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`, `BLOB_STORE_ID` and the Blob OIDC
+credentials come from the Vercel integrations. Do not paste database passwords
+or Blob tokens into the repository.
 
-   ```bash
-   docker compose logs -f worker
-   ```
+Optional:
 
-   If it is stopped, jobs stay `queued` and the UI says so.
+| Variable | Value |
+| --- | --- |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | `openai` plus a key, or leave disabled |
+| `EMAIL_PROVIDER` / `RESEND_API_KEY` / `EMAIL_FROM` | `resend` plus a verified domain, or leave disabled |
+| `GOOGLE_BOOKS_API_KEY` | optional catalogue quota increase |
 
-9. Back up PostgreSQL:
+Do **not** set `VITE_API_URL` to the old Render URL. The Vercel frontend uses
+same-origin `/api/v1` requests, so the session cookie remains first-party.
 
-   ```bash
-   docker compose exec -T db pg_dump -U bookvault bookvault | gzip > backup-$(date +%F).sql.gz
-   ```
+## 5. Deploy and verify
 
-10. Upgrade later:
+1. Trigger a deployment.
+2. Wait for the frontend build and Python function packaging to finish.
+3. Open `https://<project>.vercel.app/api/v1/health`.
 
-    ```bash
-    git pull
-    docker compose build
-    docker compose run --rm migrate
-    docker compose up -d api worker
-    ```
+   Expect HTTP 200 with `"environment": "production"`.
 
-### A2. Render blueprint
+4. Open `/api/v1/health/ready`.
 
-`render.yaml` defines:
+   Expect `"database": true`, `"storage_backend": "vercel_blob"`, and an empty
+   `config_problems` list.
 
-- `bookvault-db` - managed PostgreSQL 16
-- `bookvault-api` - Docker web service; builds `Dockerfile`, runs migrations on
-  start, serves API + frontend; health check `/api/v1/health`
-- `bookvault-worker` - Python worker for imports, exports, reminders and AI jobs
+5. Register or sign in as the address in `ADMIN_EMAILS`. The account is promoted
+   automatically; confirm `/api/v1/auth/me` reports `role: administrator`.
+6. Create a book, export it, and download the export. This exercises Postgres,
+   Blob storage and inline job execution.
+7. Check **Vercel → Logs** for `api_started`, `migration_failed` or
+   `job_started_inline`.
 
-Steps:
+## 6. Cron and background jobs
 
-1. Push this repository to GitHub.
-2. Create a private R2 bucket and an S3 API token limited to it.
-3. In Render: **New -> Blueprint**, connect the repo, select `render.yaml`.
-4. Fill every `sync: false` value when prompted:
+Vercel Functions do not keep the `python -m app.tasks.worker` process alive.
+Instead:
 
-   | Key | Value |
-   | --- | --- |
-   | `FRONTEND_URL` | `https://<service-name>.onrender.com` (or your domain) |
-   | `ALLOWED_ORIGINS` | same exact origin |
-   | `S3_ENDPOINT_URL` | `https://<account-id>.r2.cloudflarestorage.com` |
-   | `S3_BUCKET` | bucket name |
-   | `S3_ACCESS_KEY_ID` | R2/S3 access key |
-   | `S3_SECRET_ACCESS_KEY` | R2/S3 secret |
-   | `S3_REGION` | `auto` for R2 |
+- Exports, imports, AI summaries, document extraction and email jobs are claimed
+  and completed before the API request returns. The response carries the final
+  status (for example `ready` or `completed`).
+- The cron endpoint `/api/v1/internal/jobs/tick` runs daily at 08:00 UTC. It
+  creates notifications due in a 30-minute window, reaps interrupted jobs older
+  than 10 minutes, and processes up to `CRON_JOB_LIMIT` queued jobs.
+- Vercel sends `Authorization: Bearer <CRON_SECRET>`. If `CRON_SECRET` is unset,
+  the endpoint returns 503 by design.
 
-   `SECRET_KEY` is generated by Render. The worker reads the same value via
-   `fromService`.
+Vercel Hobby limits cron frequency to once per day. That is enough for immediate
+user jobs, but a daily tick can only catch reminder times near 08:00 UTC. If you
+need per-minute reminder scheduling, upgrade the plan or call the same endpoint
+from an external scheduler with the bearer secret.
 
-5. Apply the blueprint. Watch the API logs for `api_started`; if configuration
-   is incomplete, startup intentionally fails and logs `configuration_problem`.
-6. Confirm the worker service is running. Open the API URL, register, and
-   complete onboarding.
-7. Optional: add a custom domain, then update `FRONTEND_URL` and
-   `ALLOWED_ORIGINS` to the custom HTTPS origin and redeploy.
-8. Optional: set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` and a verified
-   `EMAIL_FROM`.
-9. Optional: set `AI_PROVIDER=openai` (or `ollama` with a reachable
-   `AI_BASE_URL`), `AI_API_KEY`, `AI_MODEL`. Users must still opt in.
-10. Enable Render database backups and set an alert on failed deploys.
-
-The blueprint uses paid `starter` plans. Change the plan values if you are
-creating a disposable demo; free databases expire and free web services sleep.
-
-## Topology B - Vercel frontend + API elsewhere
-
-Vercel can host the **static React frontend only**. The FastAPI API, PostgreSQL
-database and background worker need a long-running host (topology A). Deploy the
-API first and note its HTTPS origin, then choose one of these Vercel setups:
-
-- **Root-directory setup:** import the repo, set **Root Directory** to
-  `frontend`, framework preset Vite, build `npm run build`, output `dist`.
-  `frontend/vercel.json` supplies the SPA rewrites, CSP and caching.
-- **Repository-root setup:** leave Root Directory empty. The root
-  `vercel.json` runs `cd frontend && npm ci` / `npm run build` and publishes
-  `frontend/dist`.
-
-Then:
-
-1. Add `VITE_API_URL=https://api.example.com` to the Vercel project
-   (Production and Preview). It must be the API origin, without `/api/v1`.
-2. On the backend set:
-
-   ```dotenv
-   FRONTEND_URL=https://books.example.com
-   ALLOWED_ORIGINS=https://books.example.com
-   COOKIE_SECURE=true
-   COOKIE_SAMESITE=none
-   ```
-
-   `SameSite=None` requires HTTPS on both sides and may be affected by
-   browser third-party-cookie policy. Topology A avoids that class of problem.
-
-3. Redeploy both. Sign in and confirm `/auth/me` returns 200 with credentials.
-
-## Administrator access
+## 7. Administrator access
 
 Accounts listed in `ADMIN_EMAILS` (comma-separated) are promoted automatically
-when they register or sign in. The repository default is
-`enendugodwin@gmail.com`; change it before sharing a deployment, and only list
-addresses you control because registration does not require email verification.
+on registration and login. The repository default is
+`enendugodwin@gmail.com`. Only list addresses you control; registration does not
+require email verification.
 
-Any other account can be promoted from the backend directory after it exists;
-there is no unauthenticated bootstrap route:
-
-```bash
-python scripts/admin.py promote owner@example.com
-python scripts/admin.py list
-```
-
-Revoking the last active administrator is refused. Guards also prevent an
-administrator from suspending, demoting, deleting themselves, or revoking their
-own sessions through the API.
-
-## Database migrations
-
-- Local: `alembic upgrade head` from `backend/`
-- Compose: handled by the `migrate` service (and the image CMD as a fallback)
-- Render: the Docker command runs `alembic upgrade head` before uvicorn; the
-  worker also runs it before starting
-- Check the current revision: `alembic current`
-- Never edit an applied migration; add a new revision
-
-For multiple API replicas, run migrations once as a release step and remove
-the migration command from the start command to avoid concurrent DDL.
-
-## Background worker
-
-There is no Redis or Celery. Jobs live in `background_jobs` and the worker uses
-`FOR UPDATE SKIP LOCKED` on PostgreSQL, so multiple worker processes are safe.
-
-Run it with:
+To inspect or promote an existing account from a machine with the production
+database URL:
 
 ```bash
 cd backend
-python -m app.tasks.worker
+export DATABASE_URL='<POSTGRES_URL_NON_POOLING>'
+python scripts/admin.py list
+python scripts/admin.py promote owner@example.com
 ```
 
-If the worker is absent, API requests still succeed but imports, exports,
-reminders and AI generation remain queued. The frontend polls job status and
-warns after a delay. This is deliberate: it does not claim success.
+Revoking the last active administrator is refused. Administrators cannot
+suspend, demote, delete or revoke their own sessions through the API.
 
-## Object storage
+## 8. Database backup and data migration
 
-Production validation requires `STORAGE_BACKEND=s3` plus bucket and access key.
-Use a private bucket. The API returns files through authenticated endpoints;
-no bucket CORS or public policy is needed.
+Enable backups/retention on the Vercel Postgres store and test a restore.
 
-R2 notes:
+If you need to copy data from the old Render database into Vercel Postgres:
 
-- Endpoint: `https://<account-id>.r2.cloudflarestorage.com`
-- Region: `auto`
-- Leave `S3_SERVER_SIDE_ENCRYPTION` empty (R2 encrypts at rest)
-- AWS S3 users may set `S3_SERVER_SIDE_ENCRYPTION=AES256`
+```bash
+# Read-only dump from the old database (use its current, rotated credentials).
+pg_dump --no-owner --no-acl "$OLD_DATABASE_URL" > bookvault.sql
 
-Local storage (`STORAGE_BACKEND=local`) is fine for development and for a VM
-with a persistent volume. It is not durable on Render/Fly/Cloud Run ephemeral
-filesystems.
+# Restore into the direct Vercel Postgres URL.
+psql "$POSTGRES_URL_NON_POOLING" < bookvault.sql
 
-## Email
+# Let Alembic record/verify the current revision.
+cd backend
+DATABASE_URL="$POSTGRES_URL_NON_POOLING" alembic upgrade head
+```
 
-1. Create a Resend account and verify the sending domain.
-2. Set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM`.
-3. Set `FRONTEND_URL` to the public app origin so verification and reset links
-   point at the right host.
-4. Register a test account and use **Settings -> Notifications -> Send test
-   email**.
+The Render database password that was shared in chat is compromised. Rotate it
+or delete that database after migration.
 
-Without email, in-app notifications still work. Password reset links are only
-returned in the API when `EXPOSE_RESET_TOKEN=true`, which production refuses.
+## 9. Local development
 
-When you enable email on Render, add the same `EMAIL_*` variables to **both**
-the `bookvault-api` and `bookvault-worker` services. The worker sends reminders
-and reports.
+```bash
+# Backend
+cd backend
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+pip install -r requirements.txt
+$env:PYTHONPATH="."
+uvicorn app.main:app --reload --port 8010
 
-## AI
+# Frontend (separate terminal)
+cd frontend
+npm install
+npm run dev
+```
 
-- `AI_PROVIDER=disabled` is the default and is a valid production state.
-- `openai` works with any OpenAI-compatible chat-completions endpoint.
-- `ollama` with `AI_BASE_URL=http://host.docker.internal:11434/v1` can keep
-  inference local; the container must be able to reach it.
-- Users must enable AI and external-processing consent in Settings. The
-  assistant page shows an honest "not active" state otherwise.
+The local app is `http://127.0.0.1:8010`; the Vite dev server proxies or uses
+`VITE_API_URL` as configured. Tests:
 
-AI output is not treated as fact. Summaries and chat include citations to the
-user's own library/notes, and the UI tells the reader to verify against the
-source.
+```bash
+cd backend
+$env:PYTHONPATH="."
+..\.venv\Scripts\python.exe -m pytest tests -q
 
-When you enable AI on Render, add `AI_*` variables to **both** the API and the
-worker. Summaries and insight extraction run in the worker.
+cd ../frontend
+npm run typecheck
+npm test -- --run
+npm run build
+```
 
-## Health, logs and operations
+## 10. Alternative: container host
 
-- Health: `GET /api/v1/health` (no auth)
-- API docs: `/docs` outside production; disabled in production
-- Logs: structured JSON on stdout with request IDs. Use the platform log drain.
-- Metrics: request logs plus job rows (`queued`, `running`, `completed`,
-  `failed`) in `background_jobs`.
-- Backups: enable managed PostgreSQL backups; test a restore.
-- Timezone: reminder scheduling uses each user's stored IANA timezone.
+`Dockerfile`, `docker-compose.yml` and `render.yaml` remain for a long-running
+host. That topology uses the persistent worker and can use S3/R2 instead of
+Vercel Blob. It is no longer the documented default. For a container deploy:
+
+```bash
+docker compose up -d --build
+docker compose logs -f migrate api worker
+```
+
+Set `DATABASE_URL` to PostgreSQL, `STORAGE_BACKEND=s3` (or local with a
+persistent volume), and run the worker. The app still auto-migrates by default,
+but the container entrypoint also runs `alembic upgrade head`.
 
 ## Troubleshooting
 
 | Symptom | Likely cause |
 | --- | --- |
-| Container exits at startup with `configuration_problem` | Missing production secret, SQLite URL, insecure cookie, exposed reset token, or incomplete S3/AI/email settings |
-| Login sets a cookie but the next request is unauthenticated | Different site without `COOKIE_SAMESITE=none`, or frontend/API origins not both HTTPS |
-| `403 csrf_failed` | Missing `X-CSRF-Token`; the official client handles this, custom clients must send it |
-| Import/export stays queued | Worker not running, or worker and API use different `DATABASE_URL` |
-| Covers/avatars 404 after redeploy | Local storage on an ephemeral filesystem; switch to S3/R2 |
-| `psycopg` import error | `psycopg[binary]` not installed; install `backend/requirements.txt` |
-| Password reset email link 404 | Frontend router must serve `/reset-password`; the SPA fallback in `app/main.py` or Vercel rewrites handles this |
+| Deployment fails at startup with `SECRET_KEY must be ...` | Missing/short `SECRET_KEY` in Vercel; generate a new 32+ character value |
+| `/api/v1/health/ready` returns 503 with `database: false` | Postgres store not connected, or `POSTGRES_URL` missing |
+| `migration_failed` in logs | First cold start could not reach the non-pooling URL, or the schema revision conflicts |
+| Frontend returns 404 or the API JSON at `/` | Vercel Root Directory is `frontend/` or the wrong `vercel.json` is active; set it to the repository root |
+| Login cookie is not sent | Frontend and API are on different sites, or `COOKIE_SECURE` is false over HTTPS |
+| `403 csrf_failed` | Missing `X-CSRF-Token`; the official client adds it automatically |
+| Export/import/AI stays queued | Inline jobs were disabled on a non-Vercel host, or the cron secret is missing |
+| Uploads or exports disappear after a while | `STORAGE_BACKEND=local` on Vercel; use `vercel_blob` |
+| `psycopg` import error | `psycopg[binary]` missing from the installed requirements |
+| Function bundle too large | Remove unused optional dependencies or move exports to Blob/S3; the limit is 250 MB |
 
-## Deployment blocker (exact)
+## What is verified locally
 
-At the time this was written, the workspace had:
+- Backend test suite, including Vercel URL resolution, Blob access, cron auth and
+  inline export execution.
+- Frontend typecheck, tests and production build.
+- Root `main.py` serves `/`, `/assets/*`, SPA routes and `/api/v1/health` from one
+  FastAPI app.
 
-- no Docker daemon (`docker` not installed), so the image was not built or run
-- no Render/Railway/Fly/Vercel account token or CLI session
-- no managed PostgreSQL instance
-- no R2/S3 bucket or keys
-- no Resend key or verified domain
-- no AI provider key
-- no domain or TLS certificate
-- no Git remote configured for this repository
-
-Because of those missing credentials, **no cloud deployment, public URL,
-database, or email/AI integration has been created or verified**. The local
-verification results are real and reproducible; see `PROGRESS.md`.
+Actual Vercel deployment, database connectivity, Blob uploads and admin login
+must be verified in your Vercel account after the environment variables above
+are set.

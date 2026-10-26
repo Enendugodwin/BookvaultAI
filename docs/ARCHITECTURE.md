@@ -1,6 +1,6 @@
 # YVO's Book Vault — Technical Architecture
 
-Status: implemented baseline (local verification complete; cloud deployment blocked on provider credentials).
+Status: implemented baseline (local verification complete; cloud deployment requires your Vercel account).
 
 ## 1. Components
 
@@ -9,8 +9,8 @@ Status: implemented baseline (local verification complete; cloud deployment bloc
 | Web client | React 18 + TypeScript + Vite + Tailwind, shadcn-style local component primitives | All 11 product areas, responsive UI, theme, accessibility, timer, charts |
 | API | Python 3.12 + FastAPI + Pydantic v2 + SQLAlchemy 2 | Versioned REST API, auth, authorization, validation, aggregation, job dispatch |
 | Database | PostgreSQL 16 (managed in production); SQLite for local tests only | Durable relational state, transactions, constraints, indexes |
-| Worker | `python -m app.tasks.worker` using a DB-backed queue (`background_jobs`, `FOR UPDATE SKIP LOCKED`) | AI generation, exports, imports, email/report delivery, scheduled notifications |
-| Object storage | S3-compatible (Cloudflare R2) in production; local directory in development | Uploaded source documents, generated export files |
+| Worker | Inline execution in Vercel requests plus a daily Vercel Cron; `python -m app.tasks.worker` on long-running hosts, using the DB-backed `background_jobs` queue (`FOR UPDATE SKIP LOCKED`) | AI generation, exports, imports, email/report delivery, scheduled notifications |
+| Object storage | Private Vercel Blob on Vercel; S3-compatible (Cloudflare R2) or local directory on other hosts | Uploaded source documents, generated export files |
 | AI provider | OpenAI-compatible HTTP API or Ollama-compatible endpoint; disabled by default | Summaries, chat, recommendations, knowledge extraction |
 | Catalogue | Google Books + Open Library, cached in `catalogue_cache` | Metadata discovery; degrades gracefully |
 | Email | Resend API (optional) | Reminders and reports; delivery status recorded from provider response |
@@ -20,20 +20,22 @@ flowchart LR
   U[Browser] -->|HTTPS + HttpOnly cookie| API[FastAPI<br/>serves built SPA + /api/v1]
   API -->|SQLAlchemy| DB[(Managed PostgreSQL)]
   API -->|enqueue job| DB
-  W[Worker process] -->|SKIP LOCKED| DB
+  API -->|inline job / cron tick| DB
+  W[Optional worker process] -->|SKIP LOCKED| DB
   W -->|SMTP/API| EMAIL[Resend]
-  W -->|PUT/GET| OBJ[(R2 object storage)]
+  W -->|PUT/GET| OBJ[(Vercel Blob / R2)]
+  API -->|PUT/GET| OBJ
   API -->|optional| AI[LLM provider]
   W -->|optional| AI
   API -->|optional, cached| CAT[Google Books / Open Library]
 ```
 
-The API and worker are stateless apart from the database and object storage, so either can be scaled horizontally. The SPA is a static bundle served by the API (or optionally by Vercel/Cloudflare Pages).
+The API is stateless apart from the database and object storage, so it can scale horizontally. The SPA is a static bundle served by the same FastAPI app, which keeps cookies first-party.
 
 ## 2. Authentication and authorization
 
 - Registration creates a `users` row plus `user_settings`; password hashed with scrypt (per-user salt, 64-byte output, constant-time compare).
-- Login creates an opaque 256-bit session token. Only its SHA-256 hash is stored. The raw token lives in an **HttpOnly** cookie (`bv_session`), `Secure` in production. `SameSite=Lax` for the recommended single-origin deployment; `SameSite=None` only when the SPA is on a different site (for example Vercel + Render).
+- Login creates an opaque 256-bit session token. Only its SHA-256 hash is stored. The raw token lives in an **HttpOnly** cookie (`bv_session`), `Secure` in production. `SameSite=Lax` for the same-origin Vercel or single-container deployment; `SameSite=None` only when the SPA is on a different site.
 - Every session row carries a CSRF token. Authenticated state-changing requests must send `X-CSRF-Token`; the server compares it to the session row.
 - Session expiry (30 days default) and explicit revocation on logout. Password change and account deletion revoke all sessions.
 - Every private query filters by `user_id`. Objects are never fetched by id alone for user access. Cross-user access returns 404 (not 403) to avoid existence leaks. This is covered by automated authorization tests.
@@ -74,22 +76,34 @@ Long-running AI work runs via `background_jobs`; the API returns `202` with a jo
 
 **Reading session:** timer posts start → optional pause/resume accumulates paused seconds → end sends `{started_at, ended_at, paused_seconds, start_page, end_page}` → server validates ranges and timestamps → inserts session and updates `current_page` in one transaction → aggregates recomputed on read.
 
-**Export:** `POST /exports` creates `export_jobs` + `background_jobs` → worker builds CSV/JSON/Markdown/PDF, stores to object storage (or local) → status endpoint exposes a short-lived download URL. CSV cells beginning with `= + - @` are prefixed with `'` (formula-injection defense).
+**Export:** `POST /exports` creates `export_jobs` + `background_jobs` → on Vercel the request runs the handler inline; on a container host the worker builds CSV/JSON/Markdown/PDF → file stored in Blob/S3/local → status endpoint exposes an authenticated download. CSV cells beginning with `= + - @` are prefixed with `'` (formula-injection defense).
 
 ## 6. Deployment topology
 
-Recommended: one Docker image serves the built SPA and the API from the same origin. This keeps cookies `SameSite=Lax`, avoids cross-site credential issues and needs one TLS endpoint.
+Recommended: **one Vercel project**. `main.py` exports the FastAPI app; Vercel's
+Python runtime routes `/api/v1/*`, `/assets/*` and client-side routes to it. The
+Vite bundle is built into `frontend/dist` and served from the same origin.
 
-- `bookvault-api`: Docker image at `Dockerfile`; runs `alembic upgrade head`, then `uvicorn app.main:app`; health check `/api/v1/health`. FastAPI serves the SPA from `FRONTEND_DIST_DIR` with an `index.html` fallback for client routes.
-- `bookvault-worker`: same codebase, command `python -m app.tasks.worker`; scales independently.
-- Database: managed PostgreSQL 16 with automated backups.
-- Storage: private Cloudflare R2 bucket (or AWS S3).
-- Optional: Resend for email, OpenAI-compatible or local Ollama for AI.
-- Optional split deployment: static SPA on Vercel (`frontend/vercel.json`) with `VITE_API_URL` pointing at the API. That requires `COOKIE_SAMESITE=none` and both origins on HTTPS.
+- Database: Vercel Postgres (Neon); runtime uses pooled `POSTGRES_URL`, Alembic
+  uses `POSTGRES_URL_NON_POOLING`.
+- Migrations: applied on cold start under a PostgreSQL advisory lock, or run as
+  a release step with `AUTO_MIGRATE=false`.
+- Storage: private Vercel Blob. Uploads/exports are streamed through the API.
+- Jobs: user-triggered jobs run inline; `/api/v1/internal/jobs/tick` is called by
+  Vercel Cron daily and requires `CRON_SECRET`.
+- Cookies: `SameSite=Lax` and `Secure` because the app is same-origin.
 
-`render.yaml` expresses the recommended topology: managed PostgreSQL, a Docker web service and a Python worker. `docker-compose.yml` does the same on a single VM with a one-shot `migrate` service. Configuration is entirely environment-variable driven; see `.env.example`. Startup fails fast in production if required secrets, PostgreSQL, cookie security, reset-token exposure or selected integrations are misconfigured.
+Alternative: one Docker image serves the built SPA and API. `bookvault-api` runs
+`alembic upgrade head` then uvicorn; `bookvault-worker` runs
+`python -m app.tasks.worker`; storage is private R2/S3 or a persistent local
+volume. `render.yaml` and `docker-compose.yml` express this topology.
 
-Deployment assets are authored but were never applied here; there was no Docker daemon and no provider credentials. See `docs/DEPLOYMENT.md` and `PROGRESS.md`.
+Configuration is environment-variable driven; see `.env.example`. Startup fails
+fast in production if required secrets, PostgreSQL, cookie security, reset-token
+exposure or selected integrations are misconfigured.
+
+Deployment assets are authored but were not applied from this workspace. See
+`docs/DEPLOYMENT.md` and `PROGRESS.md`.
 
 ## 7. Deliberate limits
 

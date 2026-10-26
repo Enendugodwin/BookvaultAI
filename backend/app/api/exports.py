@@ -8,11 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import AuthContext, audit, require_csrf
+from app.core.config import settings
 from app.core.db import get_db
 from app.core.errors import AppError, NotFound
 from app.models.ops import ExportJob
 from app.services.jobs import enqueue
 from app.services.storage import get_storage
+from app.tasks.runner import run_job_now
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -57,7 +59,7 @@ def list_exports(auth: AuthContext = Depends(require_csrf), db: Session = Depend
 
 
 @router.post("", status_code=202)
-def create_export(
+async def create_export(
     payload: ExportRequest, auth: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)
 ):
     job = ExportJob(user_id=auth.user.id, format=payload.format, status="queued")
@@ -67,7 +69,10 @@ def create_export(
     job.job_id = bg.id
     audit(db, auth.user.id, "export.requested", {"format": payload.format, "export_id": job.id})
     db.commit()
-    return {"id": job.id, "job_id": bg.id, "status": "queued", "format": payload.format}
+    if settings.run_jobs_inline:
+        await run_job_now(db, bg)
+        db.refresh(job)
+    return {"id": job.id, "job_id": bg.id, "status": job.status, "format": payload.format}
 
 
 @router.get("/{export_id}")

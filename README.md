@@ -6,10 +6,10 @@ optional AI assistant that is grounded in your own books and notes, a
 role-guarded administrator portal, eight visual themes, and a mobile-first app
 shell.
 
-The app is a working full-stack build: **49 backend tests and 15 frontend tests
+The app is a working full-stack build: **57 backend tests and 15 frontend tests
 pass**, the Python end-to-end smoke script passes, and the production frontend
-build succeeds. It has **not** been deployed to a public cloud account; see
-[Deployment status](#deployment-status).
+build succeeds. It is configured for a single Vercel project; see
+[Deployment status](#deployment-status) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Screenshots
 
@@ -31,9 +31,9 @@ build succeeds. It has **not** been deployed to a public cloud account; see
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, React Query, Recharts
 - **Backend:** FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, Python 3.12
-- **Data:** PostgreSQL in production, SQLite for local development and tests
-- **Jobs:** persistent database-backed worker (no Redis required)
-- **Storage:** local filesystem in development, S3/Cloudflare R2 in production
+- **Data:** PostgreSQL in production (Vercel Postgres/Neon), SQLite for local development and tests
+- **Jobs:** inline execution on Vercel plus a daily cron; persistent database-backed worker on long-running hosts
+- **Storage:** local filesystem in development, Vercel Blob on Vercel, S3/Cloudflare R2 on other hosts
 - **Optional services:** OpenAI-compatible or Ollama AI, Resend email
 
 ## Feature set
@@ -158,7 +158,7 @@ npm run typecheck
 npm run build
 ```
 
-Expected: `49 passed`, `ALL SMOKE CHECKS PASSED`, `15 passed`, and a Vite build
+Expected: `57 passed`, `ALL SMOKE CHECKS PASSED`, `15 passed`, and a Vite build
 in `frontend/dist`.
 
 ## Configuration
@@ -169,13 +169,14 @@ Copy `.env.example` to `.env`. The full reference is in
 | Variable | Purpose |
 | --- | --- |
 | `SECRET_KEY` | Signs short-lived tokens; use 32+ random characters |
-| `DATABASE_URL` | `sqlite:///...` locally, PostgreSQL in production |
+| `DATABASE_URL` | `sqlite:///...` locally; on Vercel use the connected `POSTGRES_URL` |
 | `FRONTEND_URL` / `ALLOWED_ORIGINS` | CORS and email link origins |
 | `COOKIE_SECURE` / `COOKIE_SAMESITE` | Must be secure in production |
-| `STORAGE_BACKEND` | `local` or `s3` (S3-compatible/R2) |
+| `STORAGE_BACKEND` | `local`, `s3`, or `vercel_blob` |
+| `CRON_SECRET` | Authenticates the Vercel Cron job tick endpoint |
 | `EMAIL_PROVIDER` / `RESEND_API_KEY` | Optional outbound email |
 | `AI_PROVIDER` / `AI_BASE_URL` / `AI_MODEL` | Optional AI; disabled by default |
-| `FRONTEND_DIST_DIR` | Serve a built frontend from the API (single container) |
+| `FRONTEND_DIST_DIR` | Serve a built frontend from the API (single container/Vercel) |
 
 Production startup intentionally fails fast when required security settings
 are unsafe (placeholder secret, SQLite, insecure cookie, exposed reset tokens,
@@ -183,21 +184,20 @@ incomplete S3/AI/email configuration).
 
 ## Deployment
 
-Deployment assets are included and documented, but **nothing was deployed**:
-this machine had no Docker daemon and no cloud/provider credentials. See
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for exact steps, required credentials
-and the trade-offs of each topology.
+The primary topology is **one Vercel project**: FastAPI runs as a Python
+function, the Vite bundle is served from the same app, Vercel Postgres supplies
+the database and a private Vercel Blob store holds files. See
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for exact steps.
 
 Included:
 
-- `Dockerfile` - multi-stage image that builds the frontend and serves it from
-  FastAPI, with migrations run on start
-- `docker-compose.yml` - PostgreSQL, one-shot migrations, API and worker
-- `docker.env.example` - environment template for Compose
-- `render.yaml` - Render blueprint (Docker web service + Python worker +
-  managed PostgreSQL)
-- `vercel.json` (repository root) and `frontend/vercel.json` - static frontend
-  on Vercel, with SPA rewrites, CSP and immutable asset caching
+- `main.py` - Vercel FastAPI entrypoint; serves `/api/v1/*`, `/assets/*` and the
+  SPA fallback from one origin
+- `vercel.json` - frontend build, Python function settings, CSP/caching and the
+  daily job-tick cron
+- `requirements.txt` + `backend/requirements.txt` - Python dependencies
+- `Dockerfile`, `docker-compose.yml`, `docker.env.example`, `render.yaml` -
+  alternative long-running container topology
 - `.github/workflows/ci.yml` - backend tests plus frontend typecheck/tests/build
 
 ### Deployment status
@@ -205,13 +205,16 @@ Included:
 | Item | Status |
 | --- | --- |
 | Production build | Passes locally (`npm run build`) |
+| Vercel all-in-one config | Authored (`main.py`, `vercel.json`); **not deployed here** |
+| Vercel Postgres | **Connect the store in your Vercel project** |
+| Vercel Blob | **Create a private store in your Vercel project** |
 | Container image | Authored, **not built** (Docker unavailable on this host) |
-| Render blueprint | Authored, **not synced** (no Render account/token) |
-| Vercel config | Authored at the repo root and in `frontend/`, **not deployed** (no Vercel token) |
-| Managed PostgreSQL | **Not provisioned** |
-| S3/R2 bucket | **Not provisioned** |
 | Resend / AI provider | **Not configured** (features stay disabled) |
-| Public URL / credentials | **None** - do not invent or share any |
+| Public URL / credentials | Use your own Vercel project; do not invent or share any |
+
+The app auto-applies Alembic migrations on the first cold start using a
+PostgreSQL advisory lock. The cron endpoint requires `CRON_SECRET`; without it it
+returns 503 rather than running unauthenticated.
 
 ## Architecture and security
 
@@ -259,13 +262,14 @@ docs/               architecture, environment and deployment
 
 ## Known limitations
 
-- Background jobs require the worker process. The UI says so and warns when a
-  job stays queued; it does not pretend the job finished.
+- On Vercel, user-triggered background jobs run inline and schedules use a daily
+  cron. On a long-running host, run the worker process; without it, queued jobs
+  stay queued and the UI says so.
 - Email and AI remain disabled until provider credentials are supplied. The UI
   explains the exact variables instead of simulating success.
 - Catalogue search depends on Open Library/Google Books availability; imported
   manual metadata still works offline.
-- Local file storage is not durable on ephemeral container filesystems. Use
-  S3/R2 for cloud deployments.
+- Local file storage is not durable on ephemeral serverless filesystems. Use
+  Vercel Blob on Vercel or S3/R2 on other hosts.
 - AI output can be wrong. It is presented as assistance, with citations and a
   visible reminder to verify against the source.

@@ -6,7 +6,7 @@ from collections.abc import Generator
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 from app.core.config import settings
 
@@ -37,6 +37,10 @@ def _make_engine(url: str):
         # In-memory SQLite must share one connection across threads.
         if not make_url(url).database or make_url(url).database == ":memory:":
             kwargs["poolclass"] = StaticPool
+    elif settings.is_vercel:
+        # Serverless invocations are short-lived; do not hold a local pool of
+        # connections open. Neon's pooled endpoint handles server-side pooling.
+        kwargs.update({"poolclass": NullPool, "connect_args": {"prepare_threshold": None}})
     else:
         kwargs.update({"pool_size": 5, "max_overflow": 10, "pool_recycle": 1800})
     eng = create_engine(url, **kwargs)
@@ -51,7 +55,7 @@ def _make_engine(url: str):
     return eng
 
 
-engine = _make_engine(settings.database_url)
+engine = _make_engine(settings.resolved_database_url)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 

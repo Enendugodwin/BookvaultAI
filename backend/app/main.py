@@ -16,6 +16,7 @@ from app.core.config import settings, validate_runtime_config
 from app.core.errors import AppError
 from app.core.logging import configure_logging, log_event, request_id_var
 from app.core.middleware import RequestContextMiddleware
+from app.core.migrate import upgrade_database
 
 VERSION = "1.0.0"
 
@@ -28,6 +29,15 @@ async def lifespan(app: FastAPI):
         log_event("configuration_problem", level=40, problem=problem)
     if problems and settings.is_production:
         raise RuntimeError("Refusing to start with unsafe production configuration: " + "; ".join(problems))
+    if settings.auto_migrate:
+        try:
+            upgrade_database()
+        except Exception as exc:
+            log_event(
+                "migration_failed", level=40, error_type=type(exc).__name__, error=str(exc)[:500]
+            )
+            if settings.is_production:
+                raise
     log_event("api_started", environment=settings.environment, version=VERSION)
     yield
     log_event("api_stopped")

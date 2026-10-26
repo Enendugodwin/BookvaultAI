@@ -14,6 +14,7 @@ from app.core.errors import AppError, NotFound
 from app.models.ops import ImportJob
 from app.services import importer
 from app.services.jobs import enqueue
+from app.tasks.runner import run_job_now
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -80,7 +81,7 @@ def get_import(
 
 
 @router.post("/{import_id}/commit", status_code=202)
-def commit_import(
+async def commit_import(
     import_id: str, auth: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)
 ):
     job = db.get(ImportJob, import_id)
@@ -93,7 +94,10 @@ def commit_import(
     job.status = "queued"
     bg = enqueue(db, "import_commit", {"import_id": job.id}, user_id=auth.user.id)
     db.commit()
-    return {"job_id": bg.id, "status": "queued", "import_id": job.id}
+    if settings.run_jobs_inline:
+        await run_job_now(db, bg)
+        db.refresh(job)
+    return {"job_id": bg.id, "status": job.status, "import_id": job.id}
 
 
 @router.delete("/{import_id}", status_code=204)

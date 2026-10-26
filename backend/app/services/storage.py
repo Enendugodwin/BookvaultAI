@@ -80,11 +80,51 @@ class S3Storage:
         )
 
 
+class VercelBlobStorage:
+    """Private Vercel Blob storage for serverless deployments.
+
+    The SDK authenticates with Vercel OIDC on a deployed project, or with
+    ``BLOB_READ_WRITE_TOKEN`` for local development.
+    """
+
+    def __init__(self) -> None:
+        from vercel.blob.sync import delete_blob, get_blob, put_blob
+
+        self._put = put_blob
+        self._get = get_blob
+        self._delete = delete_blob
+
+    def save(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> None:
+        self._put(
+            safe_key(key),
+            data,
+            access="private",
+            content_type=content_type,
+            add_random_suffix=False,
+            allow_overwrite=True,
+        )
+
+    def read(self, key: str) -> bytes:
+        return self._get(safe_key(key), access="private").body
+
+    def delete(self, key: str) -> None:
+        self._delete(safe_key(key))
+
+    def presigned_url(self, key: str, expires: int = 3600) -> str | None:
+        # Private blobs are downloaded through the API, which streams the bytes.
+        return None
+
+
 _storage = None
 
 
 def get_storage():
     global _storage
     if _storage is None:
-        _storage = S3Storage() if settings.storage_backend == "s3" else LocalStorage(settings.storage_local_dir)
+        if settings.storage_backend == "s3":
+            _storage = S3Storage()
+        elif settings.storage_backend == "vercel_blob":
+            _storage = VercelBlobStorage()
+        else:
+            _storage = LocalStorage(settings.storage_local_dir)
     return _storage

@@ -16,7 +16,6 @@ from app.services.ai import service as ai_service
 from app.services.ai.provider import AIResult
 from app.tasks.handlers import handle_ai_summary, handle_export, handle_import
 
-
 class FakeProvider:
     name = "fake"
     model = "fake-model"
@@ -253,3 +252,14 @@ def test_export_jobs_are_user_scoped(client, auth):
     other_headers = {"X-CSRF-Token": other["csrf_token"]}
     assert client.get(f"/api/v1/exports/{export_id}", headers=other_headers).status_code == 404
     assert client.get(f"/api/v1/exports/{export_id}/download", headers=other_headers).status_code == 404
+
+def test_export_runs_inline_on_serverless(client, auth, monkeypatch):
+    monkeypatch.setattr(settings, "inline_jobs", True)
+    add_book(client, auth["headers"])
+    r = client.post("/api/v1/exports", headers=auth["headers"], json={"format": "library_csv"})
+    assert r.status_code == 202, r.text
+    payload = r.json()
+    assert payload["status"] == "ready"
+    download = client.get(f"/api/v1/exports/{payload['id']}/download", headers=auth["headers"])
+    assert download.status_code == 200
+    assert b"The Practice" in download.content

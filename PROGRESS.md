@@ -1,6 +1,6 @@
 # Build progress
 
-Last updated: 2026-10-25
+Last updated: 2026-10-26
 
 This file is the source of truth for what is built, what was verified, and what
 is still blocked. It is intentionally specific so the next session does not
@@ -13,7 +13,7 @@ have to guess.
 | Backend application | Complete |
 | Database schema + initial migration | Complete, applied to local SQLite |
 | Frontend application | Complete |
-| Backend tests | 49 passed |
+| Backend tests | 57 passed |
 | Frontend tests | 15 passed |
 | End-to-end API smoke | Passed |
 | TypeScript typecheck | Passed |
@@ -21,9 +21,9 @@ have to guess.
 | Live browser walkthrough | Passed (login, all pages, admin portal, themes, add book, CSV import, journal, password reset, email verification) |
 | Mobile responsiveness | Verified at 320, 375 and 390 px: no horizontal overflow on 13 routes |
 | Demo seed | Complete and verified |
-| Deployment assets | Authored (Docker, Compose, Render, Vercel root + frontend, CI) |
-| Cloud deployment | **Blocked** - no cloud credentials, no Docker daemon |
-| Public URL / cloud database | **None** |
+| Deployment assets | Authored and updated for all-in-one Vercel (root `main.py`, `vercel.json`, Vercel Postgres + Blob, cron), plus Docker/Compose/Render |
+| Cloud deployment | **Not performed here** - connect your Vercel project to Postgres and Blob, then deploy |
+| Public URL / cloud database | Use your Vercel project; no URL is asserted by this file |
 
 ## Checklist
 
@@ -85,7 +85,7 @@ have to guess.
 - [x] `Dockerfile` (multi-stage; frontend served by FastAPI)
 - [x] `docker-compose.yml` (Postgres, migrate, API, worker)
 - [x] `render.yaml` (managed Postgres, Docker web, Python worker)
-- [x] `vercel.json` (repo root) and `frontend/vercel.json`
+- [x] `vercel.json` (repo root) and `main.py` FastAPI entrypoint
 - [x] `.github/workflows/ci.yml`
 - [x] `.env.example`, `docker.env.example`
 - [x] `README.md`, `docs/ARCHITECTURE.md`, `docs/ENVIRONMENT.md`,
@@ -97,8 +97,11 @@ have to guess.
       (`C:\Users\user\.ssh\bookvault_github`, fingerprint
       `SHA256:5xlgt1TbG4fTz3TOzDa6h0QBGVRLAWvBdri3yJSXhfA`)
 - [ ] Build the Docker image (Docker not installed here)
-- [ ] Apply `render.yaml` or deploy Compose to a host
-- [ ] Provision PostgreSQL / S3 / Resend / AI credentials
+- [ ] Connect Vercel Postgres and set `POSTGRES_URL` in the Vercel project
+- [ ] Create a private Vercel Blob store and set `STORAGE_BACKEND=vercel_blob`
+- [ ] Set production env vars (`SECRET_KEY`, `CRON_SECRET`, cookies, admin)
+- [ ] Deploy and verify `/api/v1/health`, `/health/ready`, admin login, export
+- [ ] Provision Resend / AI credentials if those features are needed
 - [ ] Configure a domain and TLS
 
 ## Verification log
@@ -113,8 +116,9 @@ $env:PYTHONPATH="."
 ..\.venv\Scripts\python.exe -m pytest tests -q
 ```
 
-Result: `49 passed` (2 upstream deprecation warnings from Starlette's
-TestClient and ReportLab).
+Result: `57 passed` (2 upstream deprecation warnings from Starlette's
+TestClient and ReportLab). The new tests cover Vercel database URL resolution,
+private Vercel Blob access, cron authentication and inline export execution.
 
 ### End-to-end API smoke
 
@@ -185,40 +189,52 @@ Verified with HTTP and a real headless Chrome session:
 Some page loads before sign-in log one expected `401` for `/auth/me`; the auth
 provider treats that as "signed out".
 
-## Deployment blocker
+## Deployment status
 
-No cloud deployment was performed. The workspace had:
+The code and configuration for the all-in-one Vercel deployment are complete,
+but no cloud deployment was performed from this workspace. There are no Vercel
+credentials, connected Postgres store, Blob store or live URL asserted here.
 
-- no Docker daemon, so `Dockerfile` / Compose were never built or run
-- no Render, Railway, Fly.io, Vercel or Cloudflare credentials
-- no managed PostgreSQL instance
-- no S3/R2 bucket or keys
-- no Resend key or verified sending domain
-- no AI provider key
-- no domain/TLS certificate
-- no Git remote configured
+What is verified locally:
 
-The deployment files are complete, but they are configuration, not proof of a
-running service. Do not claim a URL, credential, uptime or live integration
-until one exists.
+- `main.py` imports the FastAPI app and serves `/`, SPA routes and
+  `/api/v1/health` from one process.
+- Vercel-specific URL resolution (`POSTGRES_URL` over `DATABASE_URL`), private
+  Vercel Blob access, cron authentication and inline export execution are tested.
+- The full backend, frontend and build checks pass.
 
-## Next steps for a real deployment
+What still requires your account:
 
-1. Push the repository to GitHub using the generated key
-   (`C:\Users\user\.ssh\bookvault_github`); add the matching `.pub` file as a
-   deploy key or account SSH key first.
-2. For a Vercel frontend, import the repo, set `VITE_API_URL` to the API origin,
-   and set `COOKIE_SAMESITE=none` + `COOKIE_SECURE=true` on the API. The worker
-   and API still need a long-running host.
-3. Build the image once on a machine with Docker:
-   `docker build -t bookvault-ai .`
-4. For a VM: create `.env` from `docker.env.example`, set a real
-   `SECRET_KEY`, `POSTGRES_PASSWORD`, `APP_URL` and S3 credentials, then
-   `docker compose up -d --build`.
-5. For Render: create the R2 bucket, apply `render.yaml`, fill every
-   `sync: false` value, and set `FRONTEND_URL` / `ALLOWED_ORIGINS` to the
-   assigned HTTPS origin.
-6. Confirm `/api/v1/health` is 200 and the worker logs show it is polling.
-7. Register the first real account (do not seed production), then enable
-   Resend/AI only if required.
-8. Configure backups, a log drain, and an uptime check on `/api/v1/health`.
+- Connect Vercel Postgres and confirm `POSTGRES_URL` /
+  `POSTGRES_URL_NON_POOLING`.
+- Create a private Vercel Blob store and set `STORAGE_BACKEND=vercel_blob`.
+- Set `ENVIRONMENT=production`, a 32+ character `SECRET_KEY`,
+  `COOKIE_SECURE=true`, `COOKIE_SAMESITE=lax`, `EXPOSE_RESET_TOKEN=false`,
+  `ADMIN_EMAILS` and `CRON_SECRET`.
+- Deploy at the repository root (not `frontend/`) and verify
+  `/api/v1/health/ready`.
+
+Do not claim a URL, credential, uptime or live integration until one exists.
+
+## Next steps for the Vercel deployment
+
+1. Push the repository and import it in Vercel with **Root Directory** left at
+   the repository root.
+2. Connect **Vercel Postgres**; confirm `POSTGRES_URL` and
+   `POSTGRES_URL_NON_POOLING` are present.
+3. Connect a **private Vercel Blob** store and set
+   `STORAGE_BACKEND=vercel_blob`.
+4. Add the production environment variables listed in
+   `docs/DEPLOYMENT.md`; remove any old Render `DATABASE_URL` or
+   `VITE_API_URL`.
+5. Deploy, then check `/api/v1/health` and `/api/v1/health/ready`.
+6. Register or sign in as the `ADMIN_EMAILS` address and confirm the
+   administrator role.
+7. Create a book, export it, and download it to verify Postgres + Blob + inline
+   job execution.
+8. Confirm the cron endpoint rejects missing credentials and accepts the
+   `CRON_SECRET` bearer token.
+9. Enable Postgres backups, a log drain and an uptime check on
+   `/api/v1/health`.
+10. Rotate or delete the old Render database credentials; the password shared
+    in chat is compromised.

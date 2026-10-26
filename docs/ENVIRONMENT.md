@@ -12,7 +12,7 @@ Copy `.env.example` to `.env` for development. Never commit `.env`.
 | --- | --- | --- |
 | `ENVIRONMENT` | `development` | `development`, `test` or `production`. Production enables fail-fast safety checks. |
 | `SECRET_KEY` | insecure dev value | At least 32 random characters in production. Generate with `openssl rand -hex 32`. Changing it invalidates short-lived tokens. |
-| `DATABASE_URL` | `sqlite:///./bookvault.db` | Use PostgreSQL in production. Plain `postgresql://` and `postgres://` URLs are mapped to the bundled psycopg 3 driver. |
+| `DATABASE_URL` | `sqlite:///./bookvault.db` | Local/container PostgreSQL URL. On Vercel, a connected Postgres store injects `POSTGRES_URL` and `POSTGRES_URL_NON_POOLING`; the app prefers those automatically. Plain `postgresql://` and `postgres://` URLs are mapped to the bundled psycopg 3 driver. |
 | `FRONTEND_URL` | `http://localhost:5173` | Public origin used in email links. No trailing slash. |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated CORS origins. Must include the exact browser origin. |
 | `ADMIN_EMAILS` | `enendugodwin@gmail.com` | Comma-separated emails automatically granted administrator access on registration/login. Keep private; only use addresses you control. |
@@ -25,13 +25,24 @@ postgresql+psycopg://bookvault:password@localhost:5432/bookvault
 postgresql://user:password@host:5432/db?sslmode=require
 ```
 
+### Vercel Postgres
+
+When you connect a Vercel Postgres (Neon) store to the project, Vercel injects:
+
+- `POSTGRES_URL` — pooled connection for the running function
+- `POSTGRES_URL_NON_POOLING` — direct connection used by Alembic
+
+The app uses `POSTGRES_URL` at runtime and `POSTGRES_URL_NON_POOLING` for
+migrations, even if an old `DATABASE_URL` is still present. Do not paste the
+Render database URL into the Vercel project.
+
 ## Sessions and cookies
 
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `COOKIE_NAME` | `bv_session` | Cookie name. |
 | `COOKIE_SECURE` | `false` | Must be `true` in production (HTTPS). |
-| `COOKIE_SAMESITE` | `lax` | `lax` for same-origin deployments. Use `none` (with `COOKIE_SECURE=true`) only when the frontend is on a different site, e.g. Vercel + Render. |
+| `COOKIE_SAMESITE` | `lax` | `lax` is correct for same-origin deployments, including the all-in-one Vercel app. Use `none` (with `COOKIE_SECURE=true`) only when the frontend and API are on different sites. |
 | `SESSION_TTL_HOURS` | `720` | Absolute session lifetime. |
 | `EXPOSE_RESET_TOKEN` | `true` | Development convenience. Must be `false` in production; production startup refuses otherwise. |
 
@@ -88,8 +99,10 @@ forgot-password response also includes a reset URL for local testing.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `STORAGE_BACKEND` | `local` | `local` or `s3`. Use `s3` on ephemeral container hosts. |
+| `STORAGE_BACKEND` | `local` | `local`, `s3`, or `vercel_blob`. Use `vercel_blob` on Vercel; use `s3` on other ephemeral hosts. |
 | `STORAGE_LOCAL_DIR` | `./storage` | Local directory, relative to the process working directory. |
+| `BLOB_READ_WRITE_TOKEN` | empty | Vercel Blob token for local/non-Vercel use. A connected store injects this or uses OIDC on Vercel. |
+| `BLOB_STORE_ID` | empty | Vercel Blob store id, injected by the Vercel integration. |
 | `S3_ENDPOINT_URL` | empty | Cloudflare R2: `https://<account-id>.r2.cloudflarestorage.com`. AWS: leave empty. |
 | `S3_BUCKET` | empty | Bucket name. |
 | `S3_ACCESS_KEY_ID` | empty | Access key. |
@@ -108,6 +121,35 @@ Recommended R2 setup:
 Production validation refuses to start with `STORAGE_BACKEND=s3` until a
 bucket and access key are set.
 
+### Vercel Blob
+
+For the all-in-one Vercel deployment, create a **private** Blob store and connect
+it to the project. Set `STORAGE_BACKEND=vercel_blob`; the SDK uses Vercel OIDC
+automatically. Uploads and exports are streamed through authenticated API routes
+rather than exposed as public blobs.
+
+## Serverless jobs and migrations (Vercel)
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `AUTO_MIGRATE` | `true` | Applies Alembic migrations on the first cold start using a PostgreSQL advisory lock. Set `false` if you migrate in a release step. |
+| `INLINE_JOBS` | `false` | When true, user-triggered exports/imports/AI/email jobs finish before the request returns. Forced on when the app detects Vercel. |
+| `CRON_SECRET` | empty | Required for `/api/v1/internal/jobs/tick`. Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Without it the endpoint returns 503. |
+| `CRON_JOB_LIMIT` | `2` | Maximum queued jobs processed per cron tick, keeping the invocation inside the function duration budget. |
+
+Vercel Functions cannot run the long-lived `python -m app.tasks.worker` process.
+In the all-in-one deployment:
+
+- user-initiated jobs run inline in the API request;
+- a daily Vercel Cron at 08:00 UTC runs schedules (with a 30-minute catch-up
+  window) and drains leftover jobs;
+- stale `running` jobs are requeued by the cron tick after 10 minutes.
+
+On a Vercel Hobby plan, cron frequency is limited to once per day, which is why
+the default schedule is daily. User actions still complete immediately, but
+reminder times away from 08:00 UTC need Pro or an external scheduler calling the
+same endpoint with the bearer secret.
+
 ## Uploads, logging, hosting
 
 | Variable | Default | Notes |
@@ -116,7 +158,7 @@ bucket and access key are set.
 | `MAX_IMPORT_ROWS` | `5000` | Rows accepted in one import. |
 | `LOG_LEVEL` | `INFO` | Structured JSON logs to stdout. |
 | `SENTRY_DSN` | empty | Reserved for error reporting; not wired to an SDK. |
-| `FRONTEND_DIST_DIR` | empty | Point at a built Vite `dist` directory to serve the SPA from FastAPI (used by the Docker image). Leave empty when using Vite or Vercel. |
+| `FRONTEND_DIST_DIR` | empty | Point at a built Vite `dist` directory to serve the SPA from FastAPI. The Docker image and the root `main.py` Vercel entrypoint set this automatically. |
 | `PORT` | `8000` | Read by the container command (not by the app itself). |
 
 ## Production checklist
@@ -125,18 +167,20 @@ Production startup fails fast, and logs `configuration_problem`, when any of
 these are wrong:
 
 - `SECRET_KEY` starts with `dev-` or is shorter than 32 characters
-- `DATABASE_URL` is not PostgreSQL
+- Neither `POSTGRES_URL` (Vercel) nor `DATABASE_URL` is PostgreSQL
 - `COOKIE_SECURE` is not `true`
 - `EXPOSE_RESET_TOKEN` is `true`
 - AI is enabled without a base URL, or `openai` without an API key
 - Resend is enabled without an API key
 - S3 storage is selected without a bucket and access key
+- Vercel Blob storage is selected without `BLOB_STORE_ID` or `BLOB_READ_WRITE_TOKEN`
 
 Also verify before launch:
 
 - `FRONTEND_URL` and `ALLOWED_ORIGINS` use the real HTTPS origin
-- The worker process is running (otherwise jobs stay queued)
-- `/api/v1/health` returns 200 through the proxy
+- `/api/v1/health` returns 200 and `/api/v1/health/ready` returns `database: true`
+- On Vercel, `CRON_SECRET` is set and the cron tick returns 200
+- On a long-running host, the worker process is running
 - Database backups are enabled
 - The demo seed account is removed or its password changed
 - TLS terminates at the proxy and forwards `X-Forwarded-*`

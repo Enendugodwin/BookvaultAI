@@ -43,10 +43,9 @@ import type {
 // requests never become `//api/v1/...` (which Vercel/Render reject with 405).
 const configuredBase = ((import.meta.env.VITE_API_URL as string | undefined) ?? "").replace(/\/+$/, "");
 
-// On Vercel the API is reverse-proxied through `/api/*` (see vercel.json).
-// Same-origin requests keep the session cookie first-party, which is required
-// by mobile Safari/Chrome third-party-cookie blocking. Other hosts can still
-// point directly at the API with VITE_API_URL.
+// The primary deployment serves the API and SPA from the same Vercel project,
+// so the default is same-origin `/api/v1`. VITE_API_URL is only for a deliberate
+// split deployment; never point it at the retired Render service.
 const isVercelHost =
   typeof window !== "undefined" && /\.vercel\.app$/i.test(window.location.hostname);
 const BASE = isVercelHost ? "" : configuredBase;

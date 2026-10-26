@@ -1,0 +1,33 @@
+# Local-only artifacts that must never be uploaded to Vercel.
+.venv/
+.git/
+.github/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+frontend/node_modules/
+storage/
+test-storage/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+
+# Local secrets and machine-specific config.
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Not needed in the serverless bundle.
+backend/tests/
+docs/screenshots/
+render.yaml
+Dockerfile
+docker-compose.yml
+docker.env.example

@@ -11,4 +11,5 @@ httpx==0.28.1
 reportlab==4.2.5
 pypdf==5.1.0
 boto3==1.35.90
+vercel-blob==0.5.0
 tzdata==2024.2

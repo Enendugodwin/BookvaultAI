@@ -23,6 +23,7 @@ from app.schemas.ai import (
 from app.services.ai import service as ai_service
 from app.services.jobs import enqueue
 from app.services.storage import get_storage
+from app.tasks.runner import run_job_now
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -46,7 +47,7 @@ async def test(auth: AuthContext = Depends(require_csrf), db: Session = Depends(
 
 
 @router.post("/summaries", status_code=202)
-def create_summary(
+async def create_summary(
     payload: SummaryIn, auth: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)
 ):
     ub = verify_own_book(db, auth.user.id, payload.user_book_id)
@@ -60,6 +61,8 @@ def create_summary(
         "document_ids": payload.document_ids,
     }, user_id=auth.user.id)
     db.commit()
+    if settings.run_jobs_inline:
+        await run_job_now(db, job)
     return {"job_id": job.id, "status": job.status}
 
 
@@ -172,7 +175,7 @@ def delete_conversation(
 
 # ----------------------------------------------------------------------- insights
 @router.post("/insights", status_code=202)
-def extract(
+async def extract(
     payload: InsightExtractIn, auth: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)
 ):
     if payload.user_book_id:
@@ -182,6 +185,8 @@ def extract(
         "user_book_id": payload.user_book_id, "limit_notes": payload.limit_notes,
     }, user_id=auth.user.id)
     db.commit()
+    if settings.run_jobs_inline:
+        await run_job_now(db, job)
     return {"job_id": job.id, "status": job.status}
 
 
@@ -287,9 +292,12 @@ async def upload_document(
     )
     db.add(doc)
     db.flush()
-    enqueue(db, "document_extract", {"document_id": doc.id}, user_id=auth.user.id)
+    bg = enqueue(db, "document_extract", {"document_id": doc.id}, user_id=auth.user.id)
     audit(db, auth.user.id, "ai.document_uploaded", {"document_id": doc.id})
     db.commit()
+    if settings.run_jobs_inline:
+        await run_job_now(db, bg)
+        db.refresh(doc)
     return {"document": {"id": doc.id, "filename": doc.filename, "status": doc.status}}
 
 

@@ -15,6 +15,7 @@ from app.models.ops import Notification
 from app.models.reading import ReadingSession
 from app.services.analytics import summary
 from app.services.jobs import enqueue
+from app.tasks.runner import run_job_now
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -92,12 +93,14 @@ def delete_notification(
 
 
 @router.post("/test-email", status_code=202)
-def test_email(auth: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
+async def test_email(auth: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)):
     if not settings.email_enabled:
         raise AppError("email_disabled", "Transactional email is not configured on this server.", 400)
     job = enqueue(db, "email_test", {"to": auth.user.email}, user_id=auth.user.id)
     db.commit()
-    return {"job_id": job.id, "status": "queued", "to": auth.user.email}
+    if settings.run_jobs_inline:
+        await run_job_now(db, job)
+    return {"job_id": job.id, "status": job.status, "to": auth.user.email}
 
 
 @router.get("/reports/preview")
@@ -132,7 +135,7 @@ def preview_report(
 
 
 @router.post("/reports/send", status_code=202)
-def send_report(
+async def send_report(
     payload: ReportRequest, auth: AuthContext = Depends(require_csrf), db: Session = Depends(get_db)
 ):
     if not settings.email_enabled:
@@ -159,4 +162,6 @@ def send_report(
         "rows": rows,
     }, user_id=auth.user.id)
     db.commit()
-    return {"job_id": job.id, "status": "queued"}
+    if settings.run_jobs_inline:
+        await run_job_now(db, job)
+    return {"job_id": job.id, "status": job.status}

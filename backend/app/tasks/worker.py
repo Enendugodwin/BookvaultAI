@@ -40,7 +40,7 @@ def claim_job(db: Session) -> BackgroundJob | None:
         .order_by(BackgroundJob.run_after)
         .limit(1)
     )
-    if not settings.database_url.startswith("sqlite"):
+    if not settings.resolved_database_url.startswith("sqlite"):
         stmt = stmt.with_for_update(skip_locked=True)
     job = db.scalar(stmt)
     if job is None:
@@ -109,8 +109,12 @@ def _weekly_rows(stats: dict, last7: dict) -> list[tuple[str, str]]:
     ]
 
 
-def run_schedules(db: Session) -> None:
-    """Create due in-app notifications and enqueue report emails exactly once."""
+def run_schedules(db: Session, window_minutes: int = 5) -> None:
+    """Create due in-app notifications and enqueue report emails exactly once.
+
+    ``window_minutes`` lets an infrequent cron invocation still catch a schedule
+    that was due a few minutes earlier. Dedupe keys make repeated calls safe.
+    """
     users = db.execute(
         select(User, UserSettings).join(UserSettings, UserSettings.user_id == User.id)
         .where(User.is_active.is_(True)).limit(2000)
@@ -126,7 +130,7 @@ def run_schedules(db: Session) -> None:
         weekday = local.weekday()
 
         # Daily reading reminder
-        if cfg.notify_inapp and weekday in (cfg.reminder_days or []) and _within_minutes(local, cfg.reminder_time):
+        if cfg.notify_inapp and weekday in (cfg.reminder_days or []) and _within_minutes(local, cfg.reminder_time, window_minutes):
             reading = db.scalar(
                 select(ReadingSession.id).where(
                     ReadingSession.user_id == user.id,
@@ -147,9 +151,9 @@ def run_schedules(db: Session) -> None:
 
         # Weekly summary (Monday 08:00 local) and monthly report (1st, 08:00)
         special = None
-        if weekday == 0 and _within_minutes(local, "08:00"):
+        if weekday == 0 and _within_minutes(local, "08:00", window_minutes):
             special = ("weekly", f"week:{local.isocalendar().year}-{local.isocalendar().week}")
-        elif local.day == 1 and _within_minutes(local, "08:00"):
+        elif local.day == 1 and _within_minutes(local, "08:00", window_minutes):
             special = ("monthly", f"month:{local.year}-{local.month}")
         if special:
             kind, dedupe = special
