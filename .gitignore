@@ -39,3 +39,6 @@ test-results/
 Thumbs.db
 
 .vercel
+
+# Vercel build copy
+backend/frontend_dist/
