@@ -1,6 +1,7 @@
 # Local-only artifacts that must never be uploaded to Vercel.
 .venv/
 .git/
+.vercel/
 .github/
 __pycache__/
 *.py[cod]

@@ -5,10 +5,7 @@
     "main.py": {
       "maxDuration": 60,
       "memory": 1024,
-      "includeFiles": [
-        "backend/**",
-        "frontend/dist/**"
-      ]
+      "includeFiles": "**"
     }
   },
   "crons": [
